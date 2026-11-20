@@ -81,6 +81,23 @@ actor SearchIndex {
         return Outcome(hits: hits, total: snapshot.count, filteredCount: candidates.count, milliseconds: ms)
     }
 
+    func features(for id: UUID) -> ImageFeatures? {
+        snapshot.row(for: id).map { snapshot.rows[$0] }
+    }
+
+    /// The style tags that apply to one image, judged against the library exactly as the filter does.
+    func styleTags(for id: UUID, prompts: [(StyleTag, [Float])], calibration: MatchCalibration) -> [StyleTag] {
+        guard let row = snapshot.row(for: id), snapshot.rows[row].embedding != nil else { return [] }
+        let s = snapshot
+        return prompts.compactMap { tag, vector in
+            guard vector.count == s.dimension else { return nil }
+            let scores = s.scores(for: vector)
+            let library = MatchCalibration.LibraryStats(
+                s.rows.indices.lazy.filter { s.rows[$0].embedding != nil }.map { scores[$0] })
+            return calibration.match(cosine: scores[row], library: library) >= FilterEngine.styleMatchThreshold ? tag : nil
+        }
+    }
+
     func embedding(for id: UUID) -> [Float]? {
         snapshot.row(for: id).flatMap { snapshot.rows[$0].embedding }
     }

@@ -22,12 +22,19 @@ struct MainView: View {
                         Rectangle().fill(Theme.line).frame(width: 1)
                     }
                     ResultsView()
+                    if model.inspectorVisible {
+                        Rectangle().fill(Theme.line).frame(width: 1)
+                        DetailsPanel()
+                            .frame(width: 320)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
                 }
                 .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: model.showsImportScreen)
         .animation(.easeInOut(duration: 0.2), value: model.sidebarVisible)
+        .animation(.easeInOut(duration: 0.22), value: model.inspectorVisible)
         .background(Theme.ground)
         .tint(Theme.accent)
         .containerBackground(Theme.ground, for: .window)
@@ -46,6 +53,10 @@ struct MainView: View {
                     ViewModeToggle(mode: $model.viewMode)
                 }
                 .sharedBackgroundVisibility(.hidden)
+                ToolbarItem(placement: .automatic) {
+                    InspectorToggle(isOn: $model.inspectorVisible)
+                }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .toolbar(removing: .title)
@@ -60,5 +71,26 @@ struct MainView: View {
         } message: {
             Text(model.message ?? "")
         }
+    }
+}
+
+/// The toolbar button that shows and hides the details panel.
+struct InspectorToggle: View {
+    @Binding var isOn: Bool
+    @State private var hovering = false
+
+    var body: some View {
+        Button { isOn.toggle() } label: {
+            Image(systemName: "sidebar.right")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(isOn ? Theme.accent : Theme.ink)
+                .frame(width: 32, height: 28)
+                .background(Theme.selection.opacity(hovering ? 1 : 0), in: RoundedRectangle(cornerRadius: 7))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .onHover { hovering = $0 }
+        .help(isOn ? "Hide details (⌘I)" : "Show details (⌘I)")
+        .accessibilityLabel(isOn ? "Hide details" : "Show details")
     }
 }

@@ -18,6 +18,10 @@ enum DebugSnapshot {
             if let q = env["TEINTE_QUERY"] { model.queryText = q }
             try? await Task.sleep(for: .seconds(3))
             let out = URL(fileURLWithPath: NSTemporaryDirectory())
+            if env["TEINTE_SNAPSHOT_SCENE"] == "details" {
+                await details(model: model, out: out)
+                return
+            }
             for appearance in [NSAppearance.Name.aqua, .darkAqua] {
                 NSApp.appearance = NSAppearance(named: appearance)
                 for mode in [ViewMode.grid, .list] {
@@ -41,6 +45,29 @@ enum DebugSnapshot {
             model.viewMode = .grid
             NSLog("SNAPSHOT-DONE \(out.path)")
         }
+    }
+
+    /// Selection and the details panel: one image (light, dark), several images, and the list.
+    private static func details(model: AppModel, out: URL) async {
+        let index = Int(ProcessInfo.processInfo.environment["TEINTE_SNAPSHOT_PICK"] ?? "0") ?? 0
+        guard model.hits.indices.contains(index) else { NSLog("SNAPSHOT-DONE no hits"); return }
+        model.click(model.hits[index].id, kind: .plain)
+        model.inspectorVisible = true
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            try? await Task.sleep(for: .seconds(2.5))
+            write(to: out.appendingPathComponent("teinte-details-\(appearance == .aqua ? "light" : "dark").png"))
+        }
+        NSApp.appearance = NSAppearance(named: .aqua)
+        for hit in model.hits.prefix(index + 6).dropFirst(index + 1) { model.click(hit.id, kind: .toggle) }
+        try? await Task.sleep(for: .seconds(1.5))
+        write(to: out.appendingPathComponent("teinte-details-multi.png"))
+        model.viewMode = .list
+        try? await Task.sleep(for: .seconds(1.5))
+        write(to: out.appendingPathComponent("teinte-details-list.png"))
+        NSApp.appearance = nil
+        model.viewMode = .grid
+        NSLog("SNAPSHOT-DONE \(out.path)")
     }
 
     /// Scrolls the largest scroll view (the results) by `dy` points.

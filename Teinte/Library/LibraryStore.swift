@@ -189,6 +189,9 @@ actor LibraryStore {
         var labels: [(String, Float)]
         var failureReason: String?
         var recognizedText: String
+        var fileSize: Int64 = 0
+        var created: Date = .distantPast
+        var contentModified: Date = .distantPast
     }
 
     func details(_ ids: [UUID]) throws -> [UUID: Details] {
@@ -198,7 +201,8 @@ actor LibraryStore {
             out[r.id] = Details(
                 relativePath: r.relativePath, folderID: r.folderID, palette: r.paletteEntries,
                 labels: Array(zip(r.labels, r.labelConfidences)), failureReason: r.failureReason,
-                recognizedText: r.recognizedText)
+                recognizedText: r.recognizedText, fileSize: r.fileSize, created: r.created,
+                contentModified: r.contentModified)
         }
         return out
     }

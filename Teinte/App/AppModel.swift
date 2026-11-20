@@ -61,6 +61,17 @@ final class AppModel {
     /// Bumped to open the "Save as look" form (⌘S).
     var saveLookRequest = 0
 
+    // Selection and details
+    /// Selected images, by ID. Kept across searches only for images still in the results.
+    var selectedIDs: Set<UUID> = []
+    /// The image the details panel shows: the last one clicked.
+    var focusedID: UUID?
+    /// Where a ⇧-click range starts.
+    var selectionAnchor: UUID?
+    var inspectorVisible = false
+    /// Style-tag prompt embeddings, for the details panel. Computed once.
+    var stylePromptVectors: [(StyleTag, [Float])]?
+
     /// Images added in the last 7 days count as "Recently added".
     static let recentWindow: TimeInterval = 7 * 24 * 3600
 
@@ -487,7 +498,143 @@ final class AppModel {
             guard !Task.isCancelled else { return }
             hits = outcome.hits
             total = outcome.total
+            pruneSelection()
             searchMilliseconds = outcome.milliseconds
+        }
+    }
+}
+
+// MARK: - Selection and details
+
+extension AppModel {
+    enum ClickKind { case plain, toggle, extend }
+
+    /// A click on a result. Plain selects only it; ⌘ toggles it; ⇧ selects the range from the anchor.
+    func click(_ id: UUID, kind: ClickKind) {
+        switch kind {
+        case .plain:
+            selectedIDs = [id]
+            selectionAnchor = id
+            focusedID = id
+        case .toggle:
+            if selectedIDs.contains(id) {
+                selectedIDs.remove(id)
+                if focusedID == id { focusedID = hits.last(where: { selectedIDs.contains($0.id) })?.id }
+            } else {
+                selectedIDs.insert(id)
+                focusedID = id
+            }
+            selectionAnchor = id
+        case .extend:
+            guard let anchor = selectionAnchor, let a = hits.firstIndex(where: { $0.id == anchor }),
+                  let b = hits.firstIndex(where: { $0.id == id }) else { return click(id, kind: .plain) }
+            selectedIDs.formUnion(hits[min(a, b)...max(a, b)].map(\.id))
+            focusedID = id
+        }
+    }
+
+    /// Arrow keys: move the focus by `offset` results, selecting only that one (⇧ extends).
+    func moveFocus(by offset: Int, extend: Bool) {
+        guard !hits.isEmpty else { return }
+        let current = focusedID.flatMap { id in hits.firstIndex { $0.id == id } }
+        let next = current.map { min(max($0 + offset, 0), hits.count - 1) } ?? 0
+        let id = hits[next].id
+        if extend {
+            if selectionAnchor == nil { selectionAnchor = focusedID ?? id }
+            click(id, kind: .extend)
+        } else {
+            click(id, kind: .plain)
+        }
+    }
+
+    func selectAll() {
+        selectedIDs = Set(hits.map(\.id))
+        if focusedID == nil { focusedID = hits.first?.id }
+        selectionAnchor = focusedID
+    }
+
+    func clearSelection() {
+        selectedIDs = []
+        focusedID = nil
+        selectionAnchor = nil
+    }
+
+    /// Selected images in result order.
+    var selectedHits: [SearchIndex.Hit] { hits.filter { selectedIDs.contains($0.id) } }
+
+    /// After a search, drop selected images that are no longer in the results.
+    func pruneSelection() {
+        guard !selectedIDs.isEmpty else { return }
+        let visible = Set(hits.map(\.id))
+        selectedIDs.formIntersection(visible)
+        if let f = focusedID, !visible.contains(f) { focusedID = hits.first { selectedIDs.contains($0.id) }?.id }
+        if let a = selectionAnchor, !visible.contains(a) { selectionAnchor = focusedID }
+    }
+
+    func toggleInspector() { inspectorVisible.toggle() }
+
+    /// Show the details of one image (context menu).
+    func showDetails(_ id: UUID) {
+        if !selectedIDs.contains(id) { click(id, kind: .plain) } else { focusedID = id }
+        inspectorVisible = true
+    }
+
+    /// Everything the details panel shows about one image.
+    struct ImageInfo: Sendable {
+        var features: ImageFeatures
+        var details: LibraryStore.Details?
+        var url: URL?
+        var folderName: String?
+        var styles: [StyleTag]
+    }
+
+    func imageInfo(_ id: UUID) async -> ImageInfo? {
+        guard let index, let features = await index.features(for: id) else { return nil }
+        let details = try? await store.details([id])[id]
+        let url = details.flatMap { access.fileURL(folderID: $0.folderID, relativePath: $0.relativePath) }
+        let folderName = folders.first { $0.id == features.folderID }?.info.displayName
+        var styles: [StyleTag] = []
+        if let embedder {
+            if stylePromptVectors == nil {
+                var vs: [(StyleTag, [Float])] = []
+                for tag in StyleTag.allCases {
+                    if let v = try? await embedder.embed(text: tag.prompt) { vs.append((tag, v)) }
+                }
+                stylePromptVectors = vs
+            }
+            styles = await index.styleTags(for: id, prompts: stylePromptVectors ?? [], calibration: embedder.calibration)
+        }
+        return ImageInfo(features: features, details: details, url: url, folderName: folderName, styles: styles)
+    }
+
+    func reveal(_ ids: [UUID]) {
+        Task {
+            var urls: [URL] = []
+            for id in ids {
+                if let d = try? await store.details([id])[id],
+                   let url = access.fileURL(folderID: d.folderID, relativePath: d.relativePath) { urls.append(url) }
+            }
+            if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
+        }
+    }
+
+    /// File URLs of the given images (for copy and drag).
+    func fileURLs(_ ids: [UUID]) async -> [URL] {
+        guard let all = try? await store.details(ids) else { return [] }
+        return ids.compactMap { id in
+            all[id].flatMap { access.fileURL(folderID: $0.folderID, relativePath: $0.relativePath) }
+        }
+    }
+
+    /// Edit › Copy with images selected: puts the files on the pasteboard, as Finder does.
+    func copySelection() {
+        let ids = selectedHits.map(\.id)
+        guard !ids.isEmpty else { return }
+        Task {
+            let urls = await fileURLs(ids)
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.writeObjects(urls as [NSURL])
         }
     }
 }

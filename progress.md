@@ -124,12 +124,21 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
   - `/tmp/teinte-sheet/sheet`: contact sheets.
 - Backup of the v2-analysed store: `/tmp/teinte-backup-v2`.
 
-### Next session
+### Step 3 — Your new requirements (agreed 2026-11-20)
 
-1. **First: your new requirements.** We talk them through before any code, then fit them into the plan (PLAN.md) and the order below.
-2. Then the rest of Phase 2, unless your requirements change the order:
-   - FSEvents folder watching, plus a reconcile at launch (new, changed and deleted files).
-   - Drag-to-reorder for saved looks.
+Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; similar = content and colour; export = copy, flat, originals; order as below.
+
+1. Selection + details sidebar ✅
+   - Click selects, ⌘-click toggles, ⇧-click selects a range, ⌘A selects all results, Esc or ⇧⌘A deselects, and the arrow keys move (⇧ extends). The header shows "N selected · Deselect". Selected tiles get an accent ring; selected list rows get a tint and an accent edge.
+   - ⌘C copies the selected files, as in Finder (inside the search field it still copies text). The context menu has Show Details, Show in Finder and Copy, and acts on the whole selection.
+   - Details panel on the right (⌘I, the toolbar button, a double-click, or Show Details): a 900 px preview of the original, name and folder, size, file size, EXIF (taken, camera, settings) when present, the palette strip, top colours with shares, subject vs background, looks and style tags, brightness/contrast/saturation/quality meters, people, faces and labels (hover shows Vision's confidence), and recognised text. With several images selected, it shows their thumbnails, shared colours, Show in Finder and Copy.
+   - Screenshots are in `design/review/details/`.
+   - Double-click now opens the details instead of revealing in Finder.
+2. Find similar
+3. Export (folder or zip)
+4. Language (German UI + search)
+
+Then the rest of Phase 2: FSEvents folder watching with a launch reconcile, and drag-to-reorder for saved looks.
 
 ## Phase 3 — Mac polish
 ## Phase 4 — Release prep

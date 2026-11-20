@@ -5,6 +5,8 @@ import TeinteCore
 /// Search bar and chips on top; the count, then the grid or the list.
 struct ResultsView: View {
     @Environment(AppModel.self) private var model
+    @FocusState private var resultsFocused: Bool
+    @State private var gridColumns = 1
 
     private var horizontalPadding: CGFloat { model.sidebarVisible ? 40 : 80 }
 
@@ -16,7 +18,7 @@ struct ResultsView: View {
                 if model.hits.isEmpty {
                     EmptyResults()
                 } else if model.viewMode == .grid {
-                    ResultsGrid()
+                    ResultsGrid(columns: $gridColumns)
                 } else {
                     ResultsList()
                 }
@@ -24,8 +26,34 @@ struct ResultsView: View {
             .padding(.horizontal, horizontalPadding)
             .padding(.top, 28)
             .padding(.bottom, 40)
+            // A click on empty space clears the selection and takes keyboard focus for the arrow keys.
+            .background {
+                Color.clear.contentShape(Rectangle())
+                    .onTapGesture { model.clearSelection(); resultsFocused = true }
+            }
         }
         .scrollIndicators(.automatic)
+        .focusable()
+        .focusEffectDisabled()
+        .focused($resultsFocused)
+        .onChange(of: model.selectedIDs) { if !model.selectedIDs.isEmpty { resultsFocused = true } }
+        .onKeyPress(.escape) {
+            guard !model.selectedIDs.isEmpty else { return .ignored }
+            model.clearSelection()
+            return .handled
+        }
+        .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
+            let row = model.viewMode == .grid ? gridColumns : 1
+            let offset = switch press.key {
+            case .leftArrow: model.viewMode == .grid ? -1 : 0
+            case .rightArrow: model.viewMode == .grid ? 1 : 0
+            case .upArrow: -row
+            default: row
+            }
+            guard offset != 0 else { return .ignored }
+            model.moveFocus(by: offset, extend: press.modifiers.contains(.shift))
+            return .handled
+        }
         // Results scroll under the search header, which blurs them.
         .safeAreaInset(edge: .top, spacing: 0) { header }
     }
@@ -75,17 +103,40 @@ struct ResultsHeader: View {
                 .font(.sans(14, .regular))
                 .foregroundStyle(Theme.muted)
             Spacer(minLength: 16)
-            Text(hint)
-                .font(.mono(11))
-                .foregroundStyle(Theme.muted)
-                .lineLimit(1)
+            if model.selectedIDs.isEmpty {
+                Text(hint)
+                    .font(.mono(11))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
+            } else {
+                SelectionSummary()
+            }
         }
-        .accessibilityElement(children: .combine)
     }
 
     private var hint: String {
         if model.rankingText == nil { return model.active.isEmpty ? "newest first" : "strongest colour match first" }
         return model.viewMode == .grid ? "sorted by how well they match" : "why each one matched"
+    }
+}
+
+/// "3 selected · Deselect" on the right of the count.
+struct SelectionSummary: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(model.selectedIDs.count.grouped) selected")
+                .font(.mono(11))
+                .foregroundStyle(Theme.ink)
+                .contentTransition(.numericText())
+            Button("Deselect") { model.clearSelection() }
+                .buttonStyle(.plain)
+                .font(.mono(11))
+                .foregroundStyle(Theme.muted)
+                .help("Deselect all (Esc)")
+        }
+        .animation(.easeOut(duration: 0.15), value: model.selectedIDs.count)
     }
 }
 
@@ -127,13 +178,22 @@ struct EmptyResults: View {
 
 struct ResultsGrid: View {
     @Environment(AppModel.self) private var model
+    /// How many columns fit, for the up and down arrow keys.
+    @Binding var columns: Int
+
+    static let minimum: CGFloat = 200
+    static let spacing: CGFloat = 18
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 18, alignment: .top)],
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: Self.minimum), spacing: Self.spacing, alignment: .top)],
                   alignment: .leading, spacing: 26) {
             ForEach(model.hits) { hit in
-                GridTile(hit: hit, showDebug: model.showDebug)
+                GridTile(hit: hit, showDebug: model.showDebug, selected: model.selectedIDs.contains(hit.id))
+                    .id(hit.id)
             }
+        }
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width in
+            columns = max(1, Int((width + Self.spacing) / (Self.minimum + Self.spacing)))
         }
     }
 }
@@ -142,6 +202,7 @@ private struct GridTile: View {
     @Environment(AppModel.self) private var model
     let hit: SearchIndex.Hit
     let showDebug: Bool
+    let selected: Bool
     @State private var hovering = false
 
     var body: some View {
@@ -157,6 +218,13 @@ private struct GridTile: View {
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(Theme.ink.opacity(hovering ? 0.25 : 0.06), lineWidth: 1)
                 }
+                .overlay {
+                    if selected {
+                        RoundedRectangle(cornerRadius: 13)
+                            .inset(by: -3)
+                            .strokeBorder(Theme.accent, lineWidth: 2)
+                    }
+                }
                 .overlay(alignment: .bottomLeading) {
                     if showDebug { DebugOverlay(hit: hit) }
                 }
@@ -168,21 +236,55 @@ private struct GridTile: View {
                 Text(hit.matchText)
             }
             .font(.mono(12))
-            .foregroundStyle(Theme.ink)
+            .foregroundStyle(selected ? Theme.accent : Theme.ink)
         }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
-        .onTapGesture(count: 2) { reveal() }
-        .contextMenu { Button("Show in Finder", action: reveal) }
+        .animation(.easeOut(duration: 0.12), value: selected)
+        .resultInteractions(hit: hit)
         .help(hit.features.fileName)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(hit.accessibilityText)
-        .accessibilityAddTraits(.isImage)
+        .accessibilityAddTraits(selected ? [.isImage, .isSelected] : .isImage)
+    }
+}
+
+/// Click, ⌘-click, ⇧-click, double-click and the context menu, shared by grid tiles and list rows.
+private struct ResultInteractions: ViewModifier {
+    @Environment(AppModel.self) private var model
+    let hit: SearchIndex.Hit
+
+    func body(content: Content) -> some View {
+        content
+            // Selection happens on the first click; the double-click is recognised alongside it.
+            .onTapGesture(count: 2) { model.showDetails(hit.id) }
+            .simultaneousGesture(TapGesture().onEnded {
+                let flags = NSEvent.modifierFlags
+                model.click(hit.id, kind: flags.contains(.command) ? .toggle : flags.contains(.shift) ? .extend : .plain)
+            })
+            .contextMenu {
+                Button("Show Details") { model.showDetails(hit.id) }
+                Divider()
+                Button(targets.count > 1 ? "Show \(targets.count) in Finder" : "Show in Finder") {
+                    model.reveal(targets)
+                }
+                Button(targets.count > 1 ? "Copy \(targets.count) Images" : "Copy Image") {
+                    if !model.selectedIDs.contains(hit.id) { model.click(hit.id, kind: .plain) }
+                    model.copySelection()
+                }
+            }
     }
 
-    private func reveal() {
-        Task { if let url = await model.fileURL(for: hit) { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
+    /// A context menu on a selected image acts on the whole selection.
+    private var targets: [UUID] {
+        model.selectedIDs.contains(hit.id) ? model.selectedHits.map(\.id) : [hit.id]
+    }
+}
+
+extension View {
+    fileprivate func resultInteractions(hit: SearchIndex.Hit) -> some View {
+        modifier(ResultInteractions(hit: hit))
     }
 }
 
@@ -262,7 +364,8 @@ struct ResultsList: View {
             .accessibilityHidden(true)
             Rectangle().fill(Theme.line).frame(height: 1)
             ForEach(model.hits) { hit in
-                ListRow(hit: hit, columns: columns, matchedBucket: matchedBucket)
+                ListRow(hit: hit, columns: columns, matchedBucket: matchedBucket,
+                        selected: model.selectedIDs.contains(hit.id))
                 Rectangle().fill(Theme.line).frame(height: 1)
             }
         }
@@ -291,6 +394,7 @@ private struct ListRow: View {
     let hit: SearchIndex.Hit
     let columns: ListColumns
     let matchedBucket: ColourBucket?
+    let selected: Bool
     @State private var hovering = false
 
     var body: some View {
@@ -346,13 +450,16 @@ private struct ListRow: View {
             .frame(maxWidth: .infinity)
         }
         .frame(height: 60)
-        .background(Theme.selection.opacity(hovering ? 0.6 : 0))
+        .background(Theme.selection.opacity(selected ? 1 : hovering ? 0.6 : 0))
+        .overlay(alignment: .leading) {
+            if selected { Rectangle().fill(Theme.accent).frame(width: 2) }
+        }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .onTapGesture(count: 2) { reveal() }
-        .contextMenu { Button("Show in Finder", action: reveal) }
+        .resultInteractions(hit: hit)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(hit.accessibilityText). \(colourShare). \(f.pixelWidth) by \(f.pixelHeight). Match \(hit.matchText)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private var colourShare: String {
@@ -361,10 +468,6 @@ private struct ListRow: View {
             ?? ColourProfile(bucketShares: f.bucketShares, palette: []).rankedBuckets.first?.bucket
         guard let bucket else { return "" }
         return "\(Int((f.share(of: bucket) * 100).rounded()))% \(bucket.rawValue)"
-    }
-
-    private func reveal() {
-        Task { if let url = await model.fileURL(for: hit) { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
     }
 }
 

@@ -369,18 +369,28 @@ Acceptance:
 ### Phase 2 — The real app
 Scope: the design system (fonts, colours, controls), the window chrome, the sidebar with all sections, the search bar and chips (remove → re-query), the grid and list views per the mockups, saved looks (save, rename, delete, reorder), the first-import screen with the colour band, empty states, multiple folders, FSEvents watching and the launch reconcile.
 
+Added 2026-11-20 (your requirements, in this order, before FSEvents and look reordering):
+
+1. **Selection and details sidebar.** Click, ⌘-click, ⇧-click, ⌘A, Esc; the selection count in the header. A details panel slides in from the right (⌘I or the toolbar button): a large preview, name, folder path, size, file size, dates, palette with shares, subject vs background colours, looks, style tags, people and faces, labels, recognised text, aesthetics, and the actions Show in Finder and Find similar.
+2. **Find similar.** Right-click → "Find similar", or from the details panel. The seed image becomes a chip with a thumbnail ("like IMG_2041.jpg") that combines with other filters. Ranking blends the image embedding (what's in it) with palette distance (its colours). Replaces "More like this" from Phase 3.
+3. **Export.** Copy the selected originals, never move them, into one flat folder you choose, or into a zip. Name clashes get a "-2" suffix. The zip is made with `NSFileCoordinator` (`.forUploading`), so there's no dependency. Needs the `files.user-selected.read-write` entitlement; source folders stay read-only by design.
+4. **Language.** The UI is localised (String Catalog: English and German, chip titles included). A search-language setting defaults to the system language; non-English queries are translated to English on the device with Apple's Translation framework before parsing and embedding. Quoted text is not translated (it's matched against the recognised text), and Vision text recognition also runs in German. Foundation Models, when available, reads the language directly. A multilingual model (SigLIP 2, v2) could later drop the translation step.
+
 Acceptance:
 - [ ] Side-by-side screenshots against `design/01–03` in light mode at the same window size.
 - [ ] Removing a chip re-runs the query without it in < 100 ms (the cached text embedding is reused).
 - [ ] Adding, changing or deleting a file in a watched folder updates the index and results within about 2 s. Changes made while the app was closed are picked up at launch.
 - [ ] A saved look restores the exact chips and results after relaunch.
+- [ ] Selecting several images and exporting them to a folder or a zip copies the originals; the details panel shows everything the analysis knows about the selected image.
+- [ ] "Find similar" on an image returns visually and chromatically close images first and combines with other chips.
+- [ ] «blaue Bilder mit Menschen» gives the same chips as «blue images with people», and the UI reads German when the system language is German.
 
 ### Phase 3 — Mac polish
 Scope:
 - Quick Look preview (`QLPreviewPanel` with the result list as its data source; Space or double-click opens it, arrow keys step through results)
 - Drag out (file URLs to Finder and other apps)
 - Drop folders in
-- Context menu (Show in Finder, Copy, More like this)
+- Context menu (Show in Finder, Copy; Find similar is in Phase 2)
 - Keyboard shortcuts:
 
   | Shortcut | Action |
