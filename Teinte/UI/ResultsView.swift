@@ -188,7 +188,8 @@ struct ResultsGrid: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: Self.minimum), spacing: Self.spacing, alignment: .top)],
                   alignment: .leading, spacing: 26) {
             ForEach(model.hits) { hit in
-                GridTile(hit: hit, showDebug: model.showDebug, selected: model.selectedIDs.contains(hit.id))
+                GridTile(hit: hit, showDebug: model.showDebug, selected: model.selectedIDs.contains(hit.id),
+                         dimmed: !model.selectedIDs.isEmpty && !model.selectedIDs.contains(hit.id))
                     .id(hit.id)
             }
         }
@@ -203,6 +204,7 @@ private struct GridTile: View {
     let hit: SearchIndex.Hit
     let showDebug: Bool
     let selected: Bool
+    let dimmed: Bool
     @State private var hovering = false
 
     var body: some View {
@@ -218,13 +220,7 @@ private struct GridTile: View {
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(Theme.ink.opacity(hovering ? 0.25 : 0.06), lineWidth: 1)
                 }
-                .overlay {
-                    if selected {
-                        RoundedRectangle(cornerRadius: 13)
-                            .inset(by: -3)
-                            .strokeBorder(Theme.accent, lineWidth: 2)
-                    }
-                }
+
                 .overlay(alignment: .bottomLeading) {
                     if showDebug { DebugOverlay(hit: hit) }
                 }
@@ -236,12 +232,14 @@ private struct GridTile: View {
                 Text(hit.matchText)
             }
             .font(.mono(12))
-            .foregroundStyle(selected ? Theme.accent : Theme.ink)
+            .foregroundStyle(Theme.ink)
         }
+        // With a selection, the others step back.
+        .opacity(dimmed ? 0.35 : 1)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
-        .animation(.easeOut(duration: 0.12), value: selected)
+        .animation(.easeOut(duration: 0.15), value: dimmed)
         .resultInteractions(hit: hit)
         .help(hit.features.fileName)
         .accessibilityElement(children: .ignore)
@@ -451,9 +449,6 @@ private struct ListRow: View {
         }
         .frame(height: 60)
         .background(Theme.selection.opacity(selected ? 1 : hovering ? 0.6 : 0))
-        .overlay(alignment: .leading) {
-            if selected { Rectangle().fill(Theme.accent).frame(width: 2) }
-        }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .resultInteractions(hit: hit)

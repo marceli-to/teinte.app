@@ -129,7 +129,7 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
 Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; similar = content and colour; export = copy, flat, originals; order as below.
 
 1. Selection + details sidebar ✅
-   - Click selects, ⌘-click toggles, ⇧-click selects a range, ⌘A selects all results, Esc or ⇧⌘A deselects, and the arrow keys move (⇧ extends). The header shows "N selected · Deselect". Selected tiles get an accent ring; selected list rows get a tint and an accent edge.
+   - Click selects, ⌘-click toggles, ⇧-click selects a range, ⌘A selects all results, Esc or ⇧⌘A deselects, and the arrow keys move (⇧ extends). The header shows "N selected · Deselect". In the grid, unselected tiles fade to 35 % while there is a selection; selected list rows get a tint.
    - ⌘C copies the selected files, as in Finder (inside the search field it still copies text). The context menu has Show Details, Show in Finder and Copy, and acts on the whole selection.
    - Details panel on the right (⌘I, the toolbar button, a double-click, or Show Details): a 900 px preview of the original, name and folder, size, file size, EXIF (taken, camera, settings) when present, the palette strip, top colours with shares, subject vs background, looks and style tags, brightness/contrast/saturation/quality meters, people, faces and labels (hover shows Vision's confidence), and recognised text. With several images selected, it shows their thumbnails, shared colours, Show in Finder and Copy.
    - Screenshots are in `design/review/details/`.
