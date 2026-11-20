@@ -250,4 +250,14 @@ Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/�
 - Open `Teinte/AppIcon.icon` in Icon Composer to tweak glass, shadows or the dark fill.
 
 Phase 3 is done. Next is Phase 4 (release prep).
+
+### Touch-up — Header (2026-11-20)
+
+- Tried a fully transparent search header: results under the search field got hard to read, so it was reverted.
+- Kept the blur and the bottom line, but lowered the ground tint over the blur from 62 % to 40 %, so more of the results show through.
+- Installed a Release build to `/Applications/Teinte.app` (ad-hoc signed, Apple Silicon only).
+
 ## Phase 4 — Release prep
+
+- To fix: a universal Release build fails on Intel. `EmbeddingStore.swift:125` uses `Float16.bitPattern`, which isn't available for x86_64. Either drop Intel or change the Float16 code. The current install was built with `ONLY_ACTIVE_ARCH=YES`.
+- Still needed before distributing: Developer ID signing and notarization.
