@@ -51,8 +51,10 @@ enum VisionAnalyzer {
         var labels: [(String, Float)]
     }
 
-    static let labelConfidence: Float = 0.3
-    static let maxLabels = 20
+    /// Low on purpose: Vision often gives the object a reader would name ("building") only 0.1–0.3,
+    /// while a parent ("structure") takes the high score. Embedding search catches what's still missed.
+    static let labelConfidence: Float = 0.1
+    static let maxLabels = 60
 
     static func analyze(_ image: CGImage) async throws -> Output {
         let handler = ImageRequestHandler(image)

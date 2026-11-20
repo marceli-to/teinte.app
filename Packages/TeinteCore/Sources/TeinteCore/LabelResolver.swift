@@ -38,9 +38,27 @@ public struct LabelResolver: Sendable {
         "mountains": "mountain", "hills": "hill",
         "trees": "tree", "forest": "forest", "woods": "forest",
         "ocean": "ocean", "lake": "lake",
-        "building": "building", "buildings": "building", "architecture": "structure",
+        "building": "building", "buildings": "building", "architecture": "building",
+        "house": "house_single", "houses": "house_single", "home": "house_single", "homes": "house_single",
         "city": "cityscape", "cities": "cityscape",
     ]
+
+    /// Vision rarely says "building" with confidence: a red brick facade comes back as "structure",
+    /// "balcony", "apartment" or "storefront". A query label matches any identifier in its group.
+    static let related: [String: [String]] = [
+        "building": [
+            "skyscraper", "apartment", "domicile", "house_single", "storefront", "tower", "clock_tower",
+            "belltower", "castle", "barn", "shed", "lighthouse", "windmill", "cityscape",
+        ],
+        "house_single": ["domicile", "apartment", "barn", "shed"],
+        "car": ["automobile"],
+        "automobile": ["car"],
+    ]
+
+    /// The identifiers that satisfy a resolved label: itself plus its related group (only ones Vision knows).
+    public func group(for identifier: String) -> [String] {
+        [identifier] + (Self.related[identifier] ?? []).filter { vocabulary.isEmpty || vocabulary.contains($0) }
+    }
 
     /// The Vision identifier for `word`, or nil if it doesn't map to one.
     public func resolve(_ word: String) -> String? {

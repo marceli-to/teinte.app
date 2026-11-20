@@ -49,6 +49,33 @@ Your Phase 1 feedback: it works well. The analysis needs refinement, but the des
 - List rows: filename 13 pt, seen-in-it 13 pt, mono figures 12, swatches 18 pt, thumbs 56×42, rows 60 pt. Search bar: 46 pt tall, 12 pt radius, text 16, placeholder 14, centred in the header with equal top/bottom padding.
 - Geist and Geist Mono are kept. PLAN.md and the README are updated.
 
+### Step 2a — Label search fix ("red building") ✅ (2026-11-20)
+
+- Cause: "building" was a hard Vision filter, and Vision rarely says "building" with confidence. Red brick facades (`picsum_437`, `_819`, `_859`) came back as "structure", "balcony", "door", "apartment". The red share was fine.
+- Labels now pass on Vision (the label or a related one, e.g. building ← apartment, storefront, skyscraper) **or** on SigLIP ("a photo of a building" cosine ≥ 0.055, tuned on your library).
+- Ranking uses the whole sentence ("a photo of red building"), so the colour stays on the object. It falls back to the parsed parts when there's a negation.
+- Analysis v2 keeps Vision labels down to 0.1 confidence (was 0.3, top 20). **Your library re-analyses once on next launch.**
+- Simulated on your library: "red building" goes from 6 results (mostly sunset skylines) to 14, with the three red buildings on top.
+- Tests: 39 core + 4 app pass.
+
+### Step 2b — Analysis refinement (next session)
+
+Agreed order. Steps 2–5 need a re-analysis: bump `currentAnalysisVersion` once at the end, not per step. Longer imports are fine.
+
+1. **Match %.** Replace SigLIP's raw sigmoid (shows ~0%) with a relative calibration: how a result compares with the rest of the library for the same query. Search-side only.
+2. **Look descriptors.** Per image: brightness, contrast, saturation, warm/cool, a black-and-white flag, and zero-shot style/light tags from fixed SigLIP prompts ("golden hour", "overcast", "studio light", "film grain", "minimal", "aerial", "macro", "night"). New filters/chips.
+3. **Colour.**
+   - Weight the subject over the background using Vision saliency, and store subject vs background colours.
+   - Use about 8 clusters at more than 64×64 (the image is currently squashed).
+   - Let a colour count partly towards two neighbouring buckets; red brick currently lands in brown.
+4. **Vision.**
+   - Run people/face detection at about 1024–1536 px instead of the 512 thumbnail, and pair faces with bodies for counts.
+   - Store the recognised text so it's searchable, and add parent labels.
+   - Add animal recognition and the aesthetics score, which also flags screenshots and documents.
+5. **Stronger embedding model (separate test).** SigLIP 2 or SigLIP so400m at 384 px (Apache 2.0). No stretching to a square, plus a few crop embeddings per image. Compare on this library before switching.
+
+Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tune thresholds. It's outside the repo; rebuild if needed.
+
 **Your turn:** look at the app (or `design/review/`) and tell me what to change. Then: analysis refinement (match %, labels), followed by FSEvents watching + launch reconcile and drag-to-reorder looks.
 
 ## Phase 3 — Mac polish

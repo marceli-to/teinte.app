@@ -103,7 +103,7 @@ The rules:
   var personCount: Int
   var faceCount: Int
   var hasText: Bool
-  var labels: [String]             // Vision identifiers, confidence ≥ 0.3, top 10
+  var labels: [String]             // Vision identifiers, confidence ≥ 0.1, top 60
   var labelConfidences: [Float]
 
   var embeddingSlot: Int?          // row index in embeddings.bin
@@ -190,7 +190,7 @@ pending records ─▶ TaskGroup (max N = active CPU cores − 2, min 2)
 |---|---|
 | `DetectHumanRectanglesRequest` (upper body off) | `personCount` (observations with confidence ≥ 0.5) |
 | `DetectFaceRectanglesRequest` | `faceCount` |
-| `ClassifyImageRequest` | top labels with confidence ≥ 0.3, at most 10 |
+| `ClassifyImageRequest` | labels with confidence ≥ 0.1, at most 60 (analysis v2; was ≥ 0.3, top 20) |
 | `RecognizeTextRequest` (`.fast`, no language correction) | `hasText` = any observation with confidence ≥ 0.5 and ≥ 3 characters |
 
 `personCount` is `max(humanCount, faceCount)`. Human-rectangle detection misses small or partial figures, and faces catch close-up portraits.
@@ -282,7 +282,8 @@ The `LanguageModelSession` gets short instructions plus about 6 few-shot example
 - **people:** `any` → ≥ 1, `none` → 0, `exactly(n)` → n, `atLeast(n)` → ≥ n.
 - **faces / text:** a boolean test.
 - **labels:** each query label goes through `LabelResolver`, which tries an exact Vision identifier, then a synonym table, then a stem or plural match.
-  - A label that **resolves** becomes a hard filter.
+  - A label that **resolves** becomes a filter. An image passes if Vision tagged it with the label or a related identifier (`LabelResolver.related`: "building" also accepts apartment, storefront, skyscraper, …), **or** if its SigLIP cosine with "a photo of a <label>" is ≥ 0.055 (`FilterEngine.semanticLabelThreshold`). Vision alone misses too much: red brick facades come back as "structure" / "balcony", not "building".
+  - The ranking text is the whole sentence ("a photo of red building"), so a colour stays bound to its object. If the sentence has a negation, or the chips were edited, it's built from the positive parsed parts instead (`RankingPrompt`).
   - A label that **doesn't resolve** is moved into `freeText` for embedding search, so a hard filter never wipes out results by mistake.
   - The chip shows which happened: a solid chip for a hard filter, a lighter chip for a "similar to" filter.
 

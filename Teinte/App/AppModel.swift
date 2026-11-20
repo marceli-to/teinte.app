@@ -450,13 +450,11 @@ final class AppModel {
         let resolved = ResolvedQuery(filters: filters, resolver: resolver)
         hardLabels = resolved.hardLabels
 
-        // Ranking text: free text (+ unresolved labels); else the whole sentence, unless the user edited the chips.
-        var text: String?
-        if let t = resolved.rankingText {
-            text = "a photo of \(t)"
-        } else if !chipsEdited, !query.trimmingCharacters(in: .whitespaces).isEmpty {
-            text = query
-        }
+        // Ranking text: the whole sentence ("a photo of red building" keeps the colour on the object),
+        // or the parsed parts when the chips were edited or the sentence has a negation.
+        let text = RankingPrompt.make(
+            sentence: query, filters: filters, hardLabels: resolved.hardLabels, softLabels: resolved.softLabels,
+            sentenceIsCurrent: !chipsEdited)
         rankingText = text
         let embedder = embedder
         let scope = scope
@@ -464,9 +462,20 @@ final class AppModel {
 
         searchTask = Task {
             var vector: [Float]?
-            if let text, let embedder { vector = try? await embedder.embed(text: text) }
+            var labelVectors: [[Float]]?
+            if let embedder {
+                if let text { vector = try? await embedder.embed(text: text) }
+                // Each label is also checked by the embedding model, so Vision's misses don't drop images.
+                var vs: [[Float]] = []
+                for label in resolved.hardLabels {
+                    guard let v = try? await embedder.embed(text: ResolvedQuery.labelPrompt(label)) else { break }
+                    vs.append(v)
+                }
+                if vs.count == resolved.hardLabels.count { labelVectors = vs }
+            }
             guard !Task.isCancelled else { return }
-            let outcome = await index.search(resolved, vector: vector, scope: scope, calibration: calibration)
+            let outcome = await index.search(resolved, vector: vector, labelVectors: labelVectors,
+                                             scope: scope, calibration: calibration)
             guard !Task.isCancelled else { return }
             hits = outcome.hits
             total = outcome.total

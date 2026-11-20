@@ -62,9 +62,13 @@ actor SearchIndex {
         var milliseconds: Double
     }
 
-    func search(_ query: ResolvedQuery, vector: [Float]?, scope: SearchScope, calibration: MatchCalibration) -> Outcome {
+    func search(_ query: ResolvedQuery, vector: [Float]?, labelVectors: [[Float]]? = nil,
+                scope: SearchScope, calibration: MatchCalibration) -> Outcome {
         let start = DispatchTime.now()
-        let candidates = FilterEngine.candidates(in: snapshot, query: query, scope: scope)
+        let labelScores = labelVectors?.filter { $0.count == snapshot.dimension }.map { snapshot.scores(for: $0) }
+        let candidates = FilterEngine.candidates(
+            in: snapshot, query: query, scope: scope,
+            labelScores: labelScores?.count == query.hardLabels.count ? labelScores : nil)
         let ranked = Ranker.rank(candidates: candidates, in: snapshot, queryVector: vector,
                                  filters: query.filters, calibration: calibration)
         let hits = ranked.map { r in

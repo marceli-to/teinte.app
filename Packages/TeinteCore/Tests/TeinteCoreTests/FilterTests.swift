@@ -87,6 +87,30 @@ struct FilterTests {
         #expect(q.rankingText == "sunset jetty")
     }
 
+    @Test func relatedLabelsSatisfyAGroup() {
+        // Vision tags a brick facade "structure" + "apartment", never "building".
+        let imgs = [Self.image(labels: ["structure", "apartment"]), Self.image(labels: ["structure", "table"])]
+        let vocab = ["building", "apartment", "structure", "table"]
+        #expect(run(imgs, QueryFilters(labels: ["building"]), vocabulary: vocab) == [0])
+        #expect(run(imgs, QueryFilters(labels: ["architecture"]), vocabulary: vocab) == [0])
+    }
+
+    @Test func embeddingRescuesAMissedLabel() {
+        var snapshot = IndexSnapshot(dimension: 4)
+        var seen = Self.image(labels: ["structure"]); seen.embedding = [1, 0, 0, 0]
+        var missed = Self.image(labels: ["structure"]); missed.embedding = [0, 1, 0, 0]
+        let noEmbedding = Self.image(labels: ["structure"])
+        [seen, missed, noEmbedding].forEach { snapshot.upsert($0) }
+        let q = ResolvedQuery(filters: QueryFilters(labels: ["building"]), resolver: LabelResolver(vocabulary: ["building"]))
+        let t = FilterEngine.semanticLabelThreshold
+        // Row 0 is above the threshold, row 1 just below it.
+        #expect(FilterEngine.candidates(in: snapshot, query: q, labelScores: [[t, t - 0.001, 1]]) == [0])
+        // Without an embedding model, Vision decides alone.
+        #expect(FilterEngine.candidates(in: snapshot, query: q).isEmpty)
+        #expect(ResolvedQuery.labelPrompt("building") == "a photo of a building")
+        #expect(ResolvedQuery.labelPrompt("ocean") == "a photo of an ocean")
+    }
+
     @Test func scopeAndAvailability() {
         let a = UUID(), b = UUID()
         let old = Date(timeIntervalSinceNow: -30 * 86400)

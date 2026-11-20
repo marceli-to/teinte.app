@@ -3,7 +3,8 @@ import SwiftData
 import TeinteCore
 
 /// Bump to re-analyse every image after an analysis change.
-let currentAnalysisVersion = 1
+/// 2: labels down to confidence 0.1 (was 0.3, top 20).
+let currentAnalysisVersion = 2
 
 @Model
 final class WatchedFolder {
