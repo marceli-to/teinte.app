@@ -477,3 +477,5 @@ The folder isn't a git repository yet. I'd run `git init` at the start of Phase 
 ## 10. Out of scope for v1
 
 iCloud sync or a shared library, Photos library integration, editing/tagging/renaming, iOS/iPadOS.
+
+**Planned for v2:** a stronger embedding model, SigLIP 2 or SigLIP so400m at 384 px (Apache 2.0). Embed without stretching to a square, plus a few crop embeddings per image, and compare on a real library before switching. A model change means re-embedding the library (`EmbeddingStore` resets on a new model ID) and retuning `MatchCalibration.generic` and `FilterEngine.semanticLabelThreshold`.

@@ -96,7 +96,7 @@ Analysis v3. Your library was re-analysed once (993 images, about 6 minutes).
 
 **Your turn:** try "black and white", "warm", "golden hour", "aerial", "night", "my best photos of the beach", "product on a white background", a word you know is in a photo (e.g. "kindle"), and "red building". The analysis details (⌥⌘D) now show the look values, aesthetics and recognised text.
 
-### Step 2b — Analysis refinement (in progress)
+### Step 2b — Analysis refinement ✅ (steps 1–4; step 5 moved to v2)
 
 Agreed order. Steps 2–5 need a re-analysis: bump `currentAnalysisVersion` once at the end, not per step. Longer imports are fine.
 
@@ -110,7 +110,7 @@ Agreed order. Steps 2–5 need a re-analysis: bump `currentAnalysisVersion` once
    - Run people/face detection at about 1024–1536 px instead of the 512 thumbnail, and pair faces with bodies for counts.
    - Store the recognised text so it's searchable, and add parent labels.
    - Add animal recognition and the aesthetics score, which also flags screenshots and documents.
-5. **Stronger embedding model (separate test).** SigLIP 2 or SigLIP so400m at 384 px (Apache 2.0). No stretching to a square, plus a few crop embeddings per image. Compare on this library before switching.
+5. ~~**Stronger embedding model (separate test).**~~ Moved to v2 (2026-11-20), see PLAN.md §10. SigLIP 2 or SigLIP so400m at 384 px (Apache 2.0). No stretching to a square, plus a few crop embeddings per image. Compare on this library before switching.
 
 Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tune thresholds. It's outside the repo; rebuild if needed.
 
