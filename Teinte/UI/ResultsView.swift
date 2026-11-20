@@ -93,7 +93,7 @@ struct HeaderBackdrop: View {
     var body: some View {
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(Theme.ground.opacity(0.62))
+            Rectangle().fill(Theme.ground.opacity(0.4))
         }
     }
 }
