@@ -14,7 +14,7 @@ Short status log. Details live in `PLAN.md` (spec) and git history (changes).
 
 **Your turn:** run the app, add a folder of your own images, and try «blue images with people». Turn the Debug checkbox on to see why each image matched.
 
-## Phase 2 — The real app ⏳ in progress
+## Phase 2 — The real app ✅ (2026-11-20)
 
 Your Phase 1 feedback: it works well. The analysis needs refinement, but the design comes first.
 
@@ -118,7 +118,7 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
 
 - Everything is committed and pushed on `main`. The app builds, and all tests pass (74 core + 7 app). Your library is on analysis v3.
 - Fix: a bare word that an image shows («ellesse») now filters on the recognised text (chip «Text: ellesse») instead of ranking all images. Text search matches word starts, so «art» no longer finds «start». Confirmed in the app ✅.
-- Step 3 status: selection + details ✅, Find similar ✅, export ✅, language ✅. Folder watching ✅. Drag-to-reorder for looks is built (step 5), waiting for your check.
+- Step 3 status: selection + details ✅, Find similar ✅, export ✅, language ✅. Folder watching ✅. Drag-to-reorder for looks ✅ (step 5). **Phase 2 is done; next is Phase 3 (Mac polish).**
 - Step 3.4 checked by you: German search and the translation download work. You chose "du" with Swiss "ss" (no ß), which is done.
 - Handy tools outside the repo (rebuild if `/tmp` was cleared):
   - `/tmp/teinte-probe/probe "<text>"`: SigLIP cosines over `embeddings.bin`.
@@ -183,7 +183,7 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
 - Tests: 80 core + 11 app pass. The new tests cover the reconcile rules, real FSEvents in a temp folder (new file fires, `.DS_Store` doesn't, moving the folder fires a root change), a missing folder scanning as "unreachable" rather than empty, and a rename through the real store.
 - Your feedback: tried in the app with your folders, it works.
 
-### Step 5 — Drag-to-reorder for saved looks ⏳ (2026-11-20, waiting for your check)
+### Step 5 — Drag-to-reorder for saved looks ✅ (2026-11-20)
 
 - Drag a saved look up or down in the sidebar. The other rows move aside as you drag, and the order is saved when you let go inside the list.
 - Letting go outside the list, or pressing Esc, puts the rows back as they were.
@@ -191,9 +191,9 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
 - Text dragged from other apps doesn't trigger it, and dropping folders on the window still adds them.
 - Tests: 81 core + 11 app pass. The drag itself is untested: the shell can't drive the mouse.
 
-**Your turn:** save three looks, drag one to a new place, and restart the app to check that the order stuck.
+- Your feedback: it works.
 
-After this, Phase 2 is done.
+Phase 2 is done.
 
 ## Phase 3 — Mac polish
 ## Phase 4 — Release prep
