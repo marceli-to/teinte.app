@@ -132,12 +132,14 @@ Thumbnails go in `~/Library/Containers/…/Caches/Thumbnails/<id>.heic`, 512 px 
   - If it fails to resolve (folder moved to a removed volume or deleted), the folder shows as *unavailable* in the sidebar with a "Locate…" action. Its images stay in the index but are hidden from results.
 - **Nested or duplicate folders:** if a new folder is inside an existing one, say so and don't add it twice. If it contains existing folders, merge them.
 - **Scanning:** a recursive `FileManager` enumerator that skips hidden files and packages. It keeps UTTypes conforming to `public.image` that ImageIO can decode: JPEG, HEIC, PNG, TIFF, WebP, GIF (first frame), and RAW where ImageIO supports it.
-- **Watching:** one `FSEventStream` per folder (file-level events, 1 s latency). Events are coalesced, then reconciled against the index by path, size and mtime:
+- **Watching:** one `FSEventStream` per folder (`FolderWatcher`: file-level events, watch-root, 1 s latency). An event triggers a rescan of that folder, reconciled against the index by path, size and mtime (`Reconcile.plan`, tested in TeinteCore). Rescans run one at a time per folder, plus one more if it changed again meanwhile.
   - new file → `pending`
   - changed file → reset to `pending`
   - deleted file → remove the record and tombstone its embedding row
-  - rename → shows as delete plus add, matched by size and mtime to keep the analysis
-- **On launch,** a full reconcile pass catches anything that changed while the app was closed. It compares the folder against the DB and doesn't re-analyse unchanged files.
+  - rename or move inside the folder → delete plus add with the same size and mtime (±1 s); the record keeps its ID, analysis and embedding under the new path
+  - changes to hidden files (`.DS_Store`) and to the root folder's own metadata are ignored
+- **The folder itself going away** (unmounted, renamed, moved, trashed) never counts as "every image deleted": the scanner returns nil when the root is unreachable. The folder is closed and re-resolved through its bookmark: a moved or renamed folder is picked up at its new place; otherwise it shows as unavailable and its images stay. Volume mount/unmount notifications re-check unavailable folders, so they come back on their own when the drive returns. A folder in the Trash counts as unavailable.
+- **On launch,** watching starts first, then a full reconcile pass catches anything that changed while the app was closed. It compares the folder against the DB and doesn't re-analyse unchanged files.
 
 ---
 

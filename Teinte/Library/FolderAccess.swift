@@ -13,6 +13,8 @@ final class FolderAccess: @unchecked Sendable {
     func open(_ folder: FolderInfo, refreshed: (Data, URL) -> Void) -> URL? {
         switch FolderBookmark.resolve(folder.bookmark) {
         case .ok(let url, let newBookmark):
+            // A folder moved to the Trash still resolves; treat it as gone.
+            if url.pathComponents.contains(".Trash") { return nil }
             _ = url.startAccessingSecurityScopedResource()
             lock.withLock { urls[folder.id] = url }
             if let newBookmark { refreshed(newBookmark, url) }
@@ -47,11 +49,14 @@ final class FolderAccess: @unchecked Sendable {
 
 /// Recursive scan of a folder for images ImageIO can read.
 enum FolderScanner {
-    static func scan(_ root: URL) -> [ScannedFile] {
+    /// Nil when the folder itself is unreachable (unmounted, moved, deleted). Callers must not
+    /// read that as "every image is gone".
+    static func scan(_ root: URL) -> [ScannedFile]? {
+        guard isReachable(root) else { return nil }
         let keys: [URLResourceKey] = [.contentTypeKey, .fileSizeKey, .contentModificationDateKey, .creationDateKey, .isRegularFileKey]
         guard let e = FileManager.default.enumerator(
             at: root, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else { return [] }
+        ) else { return nil }
         let rootPath = root.standardizedFileURL.resolvingSymlinksInPath().path
         var out: [ScannedFile] = []
         for case let url as URL in e {
@@ -64,6 +69,12 @@ enum FolderScanner {
                 relativePath: relative, size: Int64(v.fileSize ?? 0),
                 modified: v.contentModificationDate ?? .distantPast, created: v.creationDate ?? .distantPast))
         }
-        return out
+        // The folder may have gone while we walked it; an empty or partial walk must not delete records.
+        return isReachable(root) ? out : nil
+    }
+
+    static func isReachable(_ url: URL) -> Bool {
+        var isDir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
     }
 }

@@ -104,6 +104,12 @@ final class AppModel {
     private let store: LibraryStore
     private var index: SearchIndex!
     private var queue: AnalysisQueue!
+    private var watcher: FolderWatcher?
+    private var mountObservers: [NSObjectProtocol] = []
+    /// Folders being rescanned, and those that changed again meanwhile.
+    private var rescanning: Set<UUID> = []
+    private var rescanAgain: Set<UUID> = []
+    private var checkingAvailability = false
     private var embedder: EmbeddingModel?
     private var fmParser: FoundationModelsParser?
     private var ruleParser = RuleBasedParser()
@@ -170,6 +176,10 @@ final class AppModel {
             onProgress: { [weak self] p in Task { @MainActor in self?.progress = p } },
             onBatch: { [weak self] in Task { @MainActor in self?.batchFinished() } })
         self.queue = queue
+        watcher = FolderWatcher { [weak self] id, change in
+            Task { @MainActor in await self?.folderChanged(id, change) }
+        }
+        observeVolumes()
 
         // Folders: resolve bookmarks, start access.
         let infos = (try? await store.folders()) ?? []
@@ -194,8 +204,12 @@ final class AppModel {
         await refreshLooks()
         runSearch()
 
-        // Catch changes made while the app was closed, then analyse what's pending.
-        for info in infos where access.isAvailable(info.id) { await rescan(info.id) }
+        // Watch first, so nothing that changes during the launch scan is missed. Then catch up on
+        // what changed while the app was closed, and analyse what's pending.
+        for info in infos { if let url = access.folderURL(info.id) { watcher?.watch(info.id, url: url) } }
+        var changed = false
+        for info in infos where access.isAvailable(info.id) { changed = await rescan(info.id) || changed }
+        if changed { runSearch() }
         await queue.start()
     }
 
@@ -275,6 +289,7 @@ final class AppModel {
             let info = try await store.addFolder(displayName: url.lastPathComponent, bookmark: bookmark, path: url.path)
             importDismissed = false
             access.register(info.id, url: url)
+            watcher?.watch(info.id, url: url)
             await refreshFolders()
             await rescan(info.id)
             await queue.start()
@@ -287,20 +302,99 @@ final class AppModel {
         let removed = (try? await store.removeFolder(id)) ?? []
         await index.remove(removed)
         removed.forEach(thumbnails.remove)
+        watcher?.unwatch(id)
         access.close(id)
         if selection == .folder(id) { select(.all) }
         await refreshFolders()
         runSearch()
     }
 
-    private func rescan(_ folderID: UUID) async {
-        guard let url = access.folderURL(folderID) else { return }
-        let files = await Task.detached(priority: .utility) { FolderScanner.scan(url) }.value
-        if let outcome = try? await store.reconcile(folderID: folderID, files: files) {
-            await index.remove(outcome.removed)
-            outcome.removed.forEach(thumbnails.remove)
+    /// Compare one folder with the index. Returns whether anything changed.
+    @discardableResult
+    private func rescan(_ folderID: UUID) async -> Bool {
+        guard let url = access.folderURL(folderID) else { return false }
+        guard let files = await Task.detached(priority: .utility, operation: { FolderScanner.scan(url) }).value else {
+            // The folder itself is gone (unmounted, moved, trashed): never read that as "all images deleted".
+            await checkAvailability()
+            return false
         }
+        guard let outcome = try? await store.reconcile(folderID: folderID, files: files), !outcome.isEmpty else {
+            return false
+        }
+        await index.remove(outcome.removed)
+        await index.rename(outcome.renamed)
+        outcome.removed.forEach(thumbnails.remove)
         await refreshFolders()
+        return true
+    }
+
+    // MARK: - Watching
+
+    /// FSEvents reported a change. Rescans are coalesced: one at a time per folder, plus one more
+    /// if it changed again meanwhile.
+    private func folderChanged(_ id: UUID, _ change: FolderWatcher.Change) async {
+        guard folders.contains(where: { $0.id == id }) else { return }
+        if change == .root {
+            await checkAvailability()
+            return
+        }
+        if rescanning.contains(id) {
+            rescanAgain.insert(id)
+            return
+        }
+        rescanning.insert(id)
+        var changed = false
+        repeat {
+            rescanAgain.remove(id)
+            changed = await rescan(id) || changed
+        } while rescanAgain.contains(id)
+        rescanning.remove(id)
+        guard changed else { return }
+        runSearch()
+        await queue.start()
+    }
+
+    /// Re-resolve every folder: one that's gone becomes unavailable (its images stay, dimmed);
+    /// one that's back (volume mounted, folder moved back) is rescanned and watched again.
+    /// A folder that was moved or renamed resolves to its new place through the bookmark.
+    private func checkAvailability() async {
+        guard !checkingAvailability else { return }
+        checkingAvailability = true
+        defer { checkingAvailability = false }
+        let infos = (try? await store.folders()) ?? []
+        var changed = false
+        for info in infos {
+            if let url = access.folderURL(info.id) {
+                if FolderScanner.isReachable(url), !url.pathComponents.contains(".Trash") { continue }
+                // Gone from where it was. It may have moved: close and try the bookmark again below.
+                watcher?.unwatch(info.id)
+                access.close(info.id)
+                changed = true
+            }
+            if let url = access.open(info, refreshed: { [store] data, url in
+                Task { try? await store.updateBookmark(folderID: info.id, bookmark: data, path: url.path) }
+            }) {
+                await index.setAvailability(folderID: info.id, available: true)
+                watcher?.watch(info.id, url: url)
+                await rescan(info.id)
+                changed = true
+            } else {
+                await index.setAvailability(folderID: info.id, available: false)
+            }
+        }
+        guard changed else { return }
+        await refreshFolders()
+        runSearch()
+        await queue.start()
+    }
+
+    private func observeVolumes() {
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
+            mountObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in await self?.checkAvailability() }
+            })
+        }
     }
 
     func fileURL(for hit: SearchIndex.Hit) async -> URL? {

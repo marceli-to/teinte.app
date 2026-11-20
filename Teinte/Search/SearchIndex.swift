@@ -44,6 +44,16 @@ actor SearchIndex {
         }
     }
 
+    /// A file was renamed or moved: same analysis and embedding, new name.
+    func rename(_ renames: [(UUID, String)]) {
+        for (id, name) in renames {
+            guard let row = snapshot.row(for: id) else { continue }
+            var f = snapshot.rows[row]
+            f.fileName = name
+            snapshot.upsert(f)
+        }
+    }
+
     func setAvailability(folderID: UUID, available: Bool) {
         snapshot.setAvailability(folderID: folderID, available: available)
     }

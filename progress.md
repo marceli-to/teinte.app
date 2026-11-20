@@ -117,7 +117,7 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
 ### Where we are (2026-11-20, end of session)
 
 - Everything is committed and pushed on `main`. The app builds, and all tests pass (74 core + 7 app). Your library is on analysis v3.
-- Step 3 status: selection + details ✅, Find similar ✅, export ✅, language ✅. **Next: FSEvents folder watching with a launch reconcile**, then drag-to-reorder for saved looks.
+- Step 3 status: selection + details ✅, Find similar ✅, export ✅, language ✅. Folder watching ✅. **Next: drag-to-reorder for saved looks.**
 - Step 3.4 checked by you: German search and the translation download work. You chose "du" with Swiss "ss" (no ß), which is done.
 - Handy tools outside the repo (rebuild if `/tmp` was cleared):
   - `/tmp/teinte-probe/probe "<text>"`: SigLIP cosines over `embeddings.bin`.
@@ -169,7 +169,20 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
    - Your feedback: it works. Spelling switched to Swiss "ss" everywhere in the UI (catalogs and Vision label names, e.g. "Strasse", "weiss"). Search accepts both ß and ss.
    - Noticed, not caused by this step: «blue images with people» shows 40 / 9 / 4 % in the app, on the last commit too, while the 2b.1 simulation gave 64 / 53 / 50. Worth a look with the match % calibration.
 
-Then the rest of Phase 2: FSEvents folder watching with a launch reconcile, and drag-to-reorder for saved looks.
+### Step 4 — Folder watching ✅ (2026-11-20)
+
+- Teinte watches every library folder (FSEvents, 1 s latency). Changes show up within a couple of seconds, without a restart:
+  - a new image is added and analysed
+  - an edited image is analysed again
+  - a deleted image disappears from the results
+  - a renamed image, or one moved into a subfolder, keeps its analysis (matched by size and date) and just changes its name
+- Finder's `.DS_Store` writes and other hidden files don't trigger anything.
+- Safety: when the folder itself goes away (drive ejected, folder renamed, moved or trashed), its images are never deleted. The folder is looked up again through its bookmark: if it was renamed or moved, Teinte follows it. Otherwise it's dimmed as unavailable, and it comes back on its own when the drive is plugged in again.
+- At launch, watching starts first, then each folder is compared with the index (this part already existed and now also keeps renames).
+- Tests: 80 core + 11 app pass. The new tests cover the reconcile rules, real FSEvents in a temp folder (new file fires, `.DS_Store` doesn't, moving the folder fires a root change), a missing folder scanning as "unreachable" rather than empty, and a rename through the real store.
+- Not tried by hand in the app: I didn't want to touch your library folders. **Your turn:** with Teinte open, drop a few images into one of your folders, rename one, and delete one. Then eject a drive with a library folder on it (if you have one) and plug it back in.
+
+Then the rest of Phase 2: drag-to-reorder for saved looks.
 
 ## Phase 3 — Mac polish
 ## Phase 4 — Release prep

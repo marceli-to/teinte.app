@@ -3,12 +3,7 @@ import SwiftData
 import TeinteCore
 
 /// A file found on disk during a scan.
-struct ScannedFile: Sendable {
-    var relativePath: String
-    var size: Int64
-    var modified: Date
-    var created: Date
-}
+typealias ScannedFile = Reconcile.OnDisk
 
 /// Work item for the analysis queue.
 struct PendingImage: Sendable {
@@ -83,33 +78,49 @@ actor LibraryStore {
     struct ReconcileOutcome: Sendable {
         var added = 0, changed = 0
         var removed: [UUID] = []
+        /// Records that kept their analysis under a new path: id → new file name.
+        var renamed: [(UUID, String)] = []
+
+        var isEmpty: Bool { added == 0 && changed == 0 && removed.isEmpty && renamed.isEmpty }
     }
 
-    /// Bring the index in line with what's on disk: new → pending, changed → pending again, gone → deleted.
+    /// Bring the index in line with what's on disk: new → pending, changed → pending again,
+    /// renamed or moved inside the folder → same record under the new path, gone → deleted.
     func reconcile(folderID: UUID, files: [ScannedFile]) throws -> ReconcileOutcome {
         guard let folder = try folder(folderID) else { return ReconcileOutcome() }
-        var outcome = ReconcileOutcome()
-        var existing: [String: ImageRecord] = [:]
-        for r in folder.images { existing[r.relativePath] = r }
+        var byID: [UUID: ImageRecord] = [:]
+        for r in folder.images { byID[r.id] = r }
+        let plan = Reconcile.plan(
+            known: byID.values.map { .init(id: $0.id, relativePath: $0.relativePath, size: $0.fileSize, modified: $0.contentModified) },
+            onDisk: files)
+        guard !plan.isEmpty else { return ReconcileOutcome() }
 
-        for f in files {
-            if let r = existing.removeValue(forKey: f.relativePath) {
-                if r.fileSize != f.size || abs(r.contentModified.timeIntervalSince(f.modified)) > 1 {
-                    r.fileSize = f.size
-                    r.contentModified = f.modified
-                    r.status = .pending
-                    outcome.changed += 1
-                }
-            } else {
-                modelContext.insert(ImageRecord(
-                    folder: folder, relativePath: f.relativePath, fileSize: f.size,
-                    contentModified: f.modified, created: f.created))
-                outcome.added += 1
-            }
+        var outcome = ReconcileOutcome()
+        for (id, f) in plan.changed {
+            guard let r = byID[id] else { continue }
+            r.fileSize = f.size
+            r.contentModified = f.modified
+            r.status = .pending
+            r.failureReason = nil
+            outcome.changed += 1
         }
-        for r in existing.values {
-            outcome.removed.append(r.id)
+        for (id, f) in plan.renamed {
+            guard let r = byID[id] else { continue }
+            r.relativePath = f.relativePath
+            r.fileName = (f.relativePath as NSString).lastPathComponent
+            r.contentModified = f.modified
+            outcome.renamed.append((id, r.fileName))
+        }
+        for f in plan.added {
+            modelContext.insert(ImageRecord(
+                folder: folder, relativePath: f.relativePath, fileSize: f.size,
+                contentModified: f.modified, created: f.created))
+            outcome.added += 1
+        }
+        for id in plan.removed {
+            guard let r = byID[id] else { continue }
             modelContext.delete(r)
+            outcome.removed.append(id)
         }
         try modelContext.save()
         return outcome
