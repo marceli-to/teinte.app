@@ -1,0 +1,11 @@
+{
+  "modelID": "siglip-base-patch16-224",
+  "dimension": 768,
+  "imageSize": 224,
+  "maxTokens": 64,
+  "logitScale": 117.33076477050781,
+  "logitBias": -12.9324369430542,
+  "padId": 1,
+  "eosId": 1,
+  "unkId": 2
+}

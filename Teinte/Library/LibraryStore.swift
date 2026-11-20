@@ -1,0 +1,221 @@
+import Foundation
+import SwiftData
+import TeinteCore
+
+/// A file found on disk during a scan.
+struct ScannedFile: Sendable {
+    var relativePath: String
+    var size: Int64
+    var modified: Date
+    var created: Date
+}
+
+/// Work item for the analysis queue.
+struct PendingImage: Sendable {
+    var id: UUID
+    var folderID: UUID
+    var relativePath: String
+}
+
+/// What analysis produced for one image.
+struct AnalysisResult: Sendable {
+    var id: UUID
+    var pixelWidth: Int
+    var pixelHeight: Int
+    var colours: ColourProfile
+    var personCount: Int
+    var faceCount: Int
+    var hasText: Bool
+    var labels: [(String, Float)]
+    var embedding: [Float]?
+}
+
+struct FolderInfo: Sendable, Identifiable, Hashable {
+    var id: UUID
+    var displayName: String
+    var bookmark: Data
+    var path: String
+}
+
+/// All SwiftData access, off the main actor.
+@ModelActor
+actor LibraryStore {
+    // MARK: Folders
+
+    func folders() throws -> [FolderInfo] {
+        try modelContext.fetch(FetchDescriptor<WatchedFolder>(sortBy: [SortDescriptor(\.addedAt)]))
+            .map { FolderInfo(id: $0.id, displayName: $0.displayName, bookmark: $0.bookmark, path: $0.lastResolvedPath) }
+    }
+
+    func addFolder(displayName: String, bookmark: Data, path: String) throws -> FolderInfo {
+        let folder = WatchedFolder(displayName: displayName, bookmark: bookmark, path: path)
+        modelContext.insert(folder)
+        try modelContext.save()
+        return FolderInfo(id: folder.id, displayName: displayName, bookmark: bookmark, path: path)
+    }
+
+    func updateBookmark(folderID: UUID, bookmark: Data, path: String) throws {
+        guard let folder = try folder(folderID) else { return }
+        folder.bookmark = bookmark
+        folder.lastResolvedPath = path
+        try modelContext.save()
+    }
+
+    func removeFolder(_ folderID: UUID) throws -> [UUID] {
+        guard let folder = try folder(folderID) else { return [] }
+        let ids = folder.images.map(\.id)
+        modelContext.delete(folder)
+        try modelContext.save()
+        return ids
+    }
+
+    private func folder(_ id: UUID) throws -> WatchedFolder? {
+        var d = FetchDescriptor<WatchedFolder>(predicate: #Predicate { $0.id == id })
+        d.fetchLimit = 1
+        return try modelContext.fetch(d).first
+    }
+
+    // MARK: Reconcile
+
+    struct ReconcileOutcome: Sendable {
+        var added = 0, changed = 0
+        var removed: [UUID] = []
+    }
+
+    /// Bring the index in line with what's on disk: new → pending, changed → pending again, gone → deleted.
+    func reconcile(folderID: UUID, files: [ScannedFile]) throws -> ReconcileOutcome {
+        guard let folder = try folder(folderID) else { return ReconcileOutcome() }
+        var outcome = ReconcileOutcome()
+        var existing: [String: ImageRecord] = [:]
+        for r in folder.images { existing[r.relativePath] = r }
+
+        for f in files {
+            if let r = existing.removeValue(forKey: f.relativePath) {
+                if r.fileSize != f.size || abs(r.contentModified.timeIntervalSince(f.modified)) > 1 {
+                    r.fileSize = f.size
+                    r.contentModified = f.modified
+                    r.status = .pending
+                    outcome.changed += 1
+                }
+            } else {
+                modelContext.insert(ImageRecord(
+                    folder: folder, relativePath: f.relativePath, fileSize: f.size,
+                    contentModified: f.modified, created: f.created))
+                outcome.added += 1
+            }
+        }
+        for r in existing.values {
+            outcome.removed.append(r.id)
+            modelContext.delete(r)
+        }
+        try modelContext.save()
+        return outcome
+    }
+
+    // MARK: Analysis queue
+
+    func pending(limit: Int) throws -> [PendingImage] {
+        let pending = AnalysisStatus.pending.rawValue
+        let done = AnalysisStatus.done.rawValue
+        let version = currentAnalysisVersion
+        var d = FetchDescriptor<ImageRecord>(
+            predicate: #Predicate { $0.statusRaw == pending || ($0.statusRaw == done && $0.analysisVersion < version) },
+            sortBy: [SortDescriptor(\.addedAt), SortDescriptor(\.relativePath)])
+        d.fetchLimit = limit
+        return try modelContext.fetch(d).map { PendingImage(id: $0.id, folderID: $0.folderID, relativePath: $0.relativePath) }
+    }
+
+    func counts() throws -> (done: Int, total: Int) {
+        let total = try modelContext.fetchCount(FetchDescriptor<ImageRecord>())
+        let pending = AnalysisStatus.pending.rawValue
+        let remaining = try modelContext.fetchCount(FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.statusRaw == pending }))
+        return (total - remaining, total)
+    }
+
+    func save(_ results: [AnalysisResult], failures: [(UUID, String)]) throws -> [ImageFeatures] {
+        let ids = results.map(\.id) + failures.map(\.0)
+        let records = try modelContext.fetch(FetchDescriptor<ImageRecord>(predicate: #Predicate { ids.contains($0.id) }))
+        var byID: [UUID: ImageRecord] = [:]
+        for r in records { byID[r.id] = r }
+
+        var features: [ImageFeatures] = []
+        for result in results {
+            guard let r = byID[result.id] else { continue }
+            r.pixelWidth = result.pixelWidth
+            r.pixelHeight = result.pixelHeight
+            r.bucketShares = result.colours.bucketShares
+            r.palette = result.colours.palette.flatMap { [$0.colour.l, $0.colour.a, $0.colour.b, $0.share] }
+            r.personCount = result.personCount
+            r.faceCount = result.faceCount
+            r.hasText = result.hasText
+            r.labels = result.labels.map(\.0)
+            r.labelConfidences = result.labels.map(\.1)
+            r.status = .done
+            r.failureReason = nil
+            r.analysisVersion = currentAnalysisVersion
+            features.append(r.features(embedding: result.embedding.map(l2Normalized), available: true))
+        }
+        for (id, reason) in failures {
+            guard let r = byID[id] else { continue }
+            r.status = .failed
+            r.failureReason = reason
+            r.analysisVersion = currentAnalysisVersion
+        }
+        try modelContext.save()
+        return features
+    }
+
+    /// Analysed records, for building the in-memory index at launch.
+    func analysedFeatures() throws -> [ImageFeatures] {
+        let done = AnalysisStatus.done.rawValue
+        return try modelContext.fetch(FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.statusRaw == done }))
+            .map { $0.features(embedding: nil, available: true) }
+    }
+
+    /// Debug details for one image (Phase 1 overlay and list).
+    struct Details: Sendable {
+        var relativePath: String
+        var folderID: UUID
+        var palette: [PaletteEntry]
+        var labels: [(String, Float)]
+        var failureReason: String?
+    }
+
+    func details(_ ids: [UUID]) throws -> [UUID: Details] {
+        let records = try modelContext.fetch(FetchDescriptor<ImageRecord>(predicate: #Predicate { ids.contains($0.id) }))
+        var out: [UUID: Details] = [:]
+        for r in records {
+            var palette: [PaletteEntry] = []
+            var i = 0
+            while i + 3 < r.palette.count {
+                let c = OKLab(l: r.palette[i], a: r.palette[i + 1], b: r.palette[i + 2])
+                palette.append(PaletteEntry(colour: c, share: r.palette[i + 3], bucket: ColourBucketMapper.bucket(for: c)))
+                i += 4
+            }
+            out[r.id] = Details(
+                relativePath: r.relativePath, folderID: r.folderID, palette: palette,
+                labels: Array(zip(r.labels, r.labelConfidences)), failureReason: r.failureReason)
+        }
+        return out
+    }
+
+    /// Send analysed images back to the queue (e.g. their embeddings belong to an older model).
+    func markPending(_ ids: [UUID]) throws {
+        guard !ids.isEmpty else { return }
+        let records = try modelContext.fetch(FetchDescriptor<ImageRecord>(predicate: #Predicate { ids.contains($0.id) }))
+        for r in records { r.status = .pending }
+        try modelContext.save()
+    }
+
+    func imageCount(folderID: UUID) throws -> Int {
+        try modelContext.fetchCount(FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.folderID == folderID }))
+    }
+
+    /// Every Vision label seen in the library.
+    func labelVocabulary() throws -> Set<String> {
+        let done = AnalysisStatus.done.rawValue
+        var d = FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.statusRaw == done })
+        d.propertiesToFetch = [\.labels]
+        return Set(try modelContext.fetch(d).flatMap(\.labels))
+    }
+}

@@ -1,0 +1,80 @@
+import Foundation
+import TeinteCore
+
+/// Owns the in-memory index and the on-disk embeddings. Queries run here, off the main actor.
+actor SearchIndex {
+    private(set) var snapshot: IndexSnapshot
+    private let embeddings: EmbeddingStore?
+
+    init(dimension: Int, embeddings: EmbeddingStore?) {
+        self.snapshot = IndexSnapshot(dimension: dimension)
+        self.embeddings = embeddings
+    }
+
+    var count: Int { snapshot.count }
+
+    /// Build from the database at launch. Returns the IDs that need re-embedding (e.g. after a model change).
+    func load(_ features: [ImageFeatures]) -> [UUID] {
+        let vectors = (try? embeddings?.loadAll()) ?? [:]
+        var missing: [UUID] = []
+        var s = IndexSnapshot(dimension: snapshot.dimension)
+        for var f in features {
+            f.embedding = vectors[f.id]
+            if f.embedding == nil, embeddings != nil { missing.append(f.id) }
+            s.upsert(f)
+        }
+        snapshot = s
+        if let embeddings, embeddings.deadFraction > 0.1 { try? embeddings.compact() }
+        return missing
+    }
+
+    func upsert(_ features: [ImageFeatures]) {
+        var toStore: [(UUID, [Float])] = []
+        for f in features {
+            snapshot.upsert(f)
+            if let e = f.embedding { toStore.append((f.id, e)) }
+        }
+        try? embeddings?.putMany(toStore)
+    }
+
+    func remove(_ ids: [UUID]) {
+        for id in ids {
+            snapshot.remove(id: id)
+            try? embeddings?.remove(id)
+        }
+    }
+
+    func setAvailability(folderID: UUID, available: Bool) {
+        snapshot.setAvailability(folderID: folderID, available: available)
+    }
+
+    struct Hit: Sendable, Identifiable, Hashable {
+        var id: UUID
+        var features: ImageFeatures
+        var score: Float
+        var match: Float?
+    }
+
+    struct Outcome: Sendable {
+        var hits: [Hit]
+        var total: Int
+        var filteredCount: Int
+        var milliseconds: Double
+    }
+
+    func search(_ query: ResolvedQuery, vector: [Float]?, scope: SearchScope, calibration: MatchCalibration) -> Outcome {
+        let start = DispatchTime.now()
+        let candidates = FilterEngine.candidates(in: snapshot, query: query, scope: scope)
+        let ranked = Ranker.rank(candidates: candidates, in: snapshot, queryVector: vector,
+                                 filters: query.filters, calibration: calibration)
+        let hits = ranked.map { r in
+            Hit(id: snapshot.rows[r.row].id, features: snapshot.rows[r.row], score: r.score, match: r.match)
+        }
+        let ms = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
+        return Outcome(hits: hits, total: snapshot.count, filteredCount: candidates.count, milliseconds: ms)
+    }
+
+    func embedding(for id: UUID) -> [Float]? {
+        snapshot.row(for: id).flatMap { snapshot.rows[$0].embedding }
+    }
+}

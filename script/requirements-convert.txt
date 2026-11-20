@@ -1,0 +1,20 @@
+# Pinned environment for script/convert-siglip.py (Apple Silicon, arm64 Python 3.12).
+#
+# Setup (no system-wide installs; everything lives in the gitignored .tools/):
+#   .tools/bin/uv venv --python 3.12 .tools/venv      # uv fetches an arm64 CPython 3.12
+#   .tools/bin/uv pip install --python .tools/venv/bin/python -r script/requirements-convert.txt
+#   .tools/venv/bin/python script/convert-siglip.py
+#
+# coremltools 9.0 is tested against torch <= 2.7.0, hence the torch pin.
+# The Homebrew python3 on this machine is x86_64 (Rosetta) and has no current torch wheels,
+# so don't use it.
+torch==2.7.0
+transformers==4.57.6
+tokenizers==0.22.2
+huggingface-hub==0.36.2
+safetensors==0.8.0
+sentencepiece==0.2.3
+protobuf==7.36.2
+coremltools==9.0
+numpy==2.2.6
+pillow==13.0.0
