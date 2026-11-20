@@ -134,7 +134,13 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
    - Details panel on the right (⌘I, the toolbar button, a double-click, or Show Details): a 900 px preview of the original, name and folder, size, file size, EXIF (taken, camera, settings) when present, the palette strip, top colours with shares, subject vs background, looks and style tags, brightness/contrast/saturation/quality meters, people, faces and labels (hover shows Vision's confidence), and recognised text. With several images selected, it shows their thumbnails, shared colours, Show in Finder and Copy.
    - Screenshots are in `design/review/details/`.
    - Double-click now opens the details instead of revealing in Finder.
-2. Find similar
+2. Find similar ✅
+   - Right-click → Find Similar, or "Find similar" in the details panel. The image becomes a chip with its thumbnail ("like picsum_437.jpg") and combines with other chips: "with people" keeps only the similar images with people.
+   - Ranking blends what's in the image (SigLIP image-to-image cosine, weight 0.65) with its colours (palette distance in OKLab, 0.35), plus the typed text if there is one. Each part is compared with the whole library first, so they add up on the same scale. The seed itself is left out.
+   - The chip stays when you type a new query; × or Esc removes it. Saved looks keep it.
+   - Checked on contact sheets of 6 seeds: the blend keeps the content and prefers the same colours (warm streets for a red-brick street, bright food for a bright bowl). Match %: close matches 90–99 %, the tail 70–80 %.
+   - Screenshots are in `design/review/similar/`.
+   - Tests: 61 core + 4 app pass.
 3. Export (folder or zip)
 4. Language (German UI + search)
 

@@ -116,6 +116,11 @@ struct ChipButton: View {
             Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(Theme.ink)
         case .bestShots:
             Image(systemName: "star").font(.system(size: 11)).foregroundStyle(Theme.ink)
+        case .similar(let seed):
+            Thumbnail(id: seed.id, aspect: 1, contentMode: .fill)
+                .frame(width: 20, height: 20)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .padding(.leading, -6)
         case .label, .freeText:
             EmptyView()
         }

@@ -22,6 +22,10 @@ enum DebugSnapshot {
                 await details(model: model, out: out)
                 return
             }
+            if env["TEINTE_SNAPSHOT_SCENE"] == "similar" {
+                await similar(model: model, out: out)
+                return
+            }
             for appearance in [NSAppearance.Name.aqua, .darkAqua] {
                 NSApp.appearance = NSAppearance(named: appearance)
                 for mode in [ViewMode.grid, .list] {
@@ -67,6 +71,30 @@ enum DebugSnapshot {
         write(to: out.appendingPathComponent("teinte-details-list.png"))
         NSApp.appearance = nil
         model.viewMode = .grid
+        NSLog("SNAPSHOT-DONE \(out.path)")
+    }
+
+    /// Find similar: from the picked result (or the file named in TEINTE_SNAPSHOT_SEED), light and dark,
+    /// then the same seed with TEINTE_SNAPSHOT_THEN typed into the search bar.
+    private static func similar(model: AppModel, out: URL) async {
+        let env = ProcessInfo.processInfo.environment
+        let pick = Int(env["TEINTE_SNAPSHOT_PICK"] ?? "0") ?? 0
+        let seed = env["TEINTE_SNAPSHOT_SEED"].flatMap { name in model.hits.first { $0.features.fileName == name } }
+            ?? (model.hits.indices.contains(pick) ? model.hits[pick] : nil)
+        guard let seed else { NSLog("SNAPSHOT-DONE no hits"); return }
+        model.findSimilar(seed.id)
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            try? await Task.sleep(for: .seconds(2.5))
+            write(to: out.appendingPathComponent("teinte-similar-\(appearance == .aqua ? "light" : "dark").png"))
+        }
+        NSApp.appearance = NSAppearance(named: .aqua)
+        if let then = env["TEINTE_SNAPSHOT_THEN"] {
+            model.queryText = then
+            try? await Task.sleep(for: .seconds(3))
+            write(to: out.appendingPathComponent("teinte-similar-combined.png"))
+        }
+        NSApp.appearance = nil
         NSLog("SNAPSHOT-DONE \(out.path)")
     }
 

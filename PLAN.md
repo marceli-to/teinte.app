@@ -313,7 +313,7 @@ Filters combine with AND. The scope comes from the sidebar (All images / Recentl
   2. Rescale within the result set so the best match isn't shown below its absolute value.
 
   With no ranking text (for example, only chips are left after removing the rest), results sort by filter strength (colour share, then date), and the % column shows "—".
-- **"More like this":** the ranking vector is the seed image's embedding. A chip reads "like IMG_2041.jpg" and can be removed like any other.
+- **Find similar** (`SimilarityRanking`): `QueryFilters.similarTo` holds the seed (ID + file name), shown as a chip with a thumbnail ("like IMG_2041.jpg"). Three signals, each turned into a z-score over the whole library, then summed: image cosine with the seed (0.65), palette similarity (0.35), and the ranking text when there is one (0.5). Palette similarity is a Gaussian kernel over OKLab distance between palette colours (σ 0.08), weighted by share and normalised like a cosine, so near colours (brick, terracotta) count as close. Match % = sigmoid((z − 2.0) / 0.5) of the combined score against the library. The seed is left out of its own results. Other chips still filter; the seed chip survives re-typing the query and goes with Esc or ×. Tuned on the 993-image library: close matches 90–99 %, the tail 70–80 %.
 
 ### 5.4 Fallback parser (`RuleBasedParser`)
 

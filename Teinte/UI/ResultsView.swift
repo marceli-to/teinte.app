@@ -115,6 +115,7 @@ struct ResultsHeader: View {
     }
 
     private var hint: String {
+        if model.active.similarTo != nil, model.viewMode == .grid { return "most similar first" }
         if model.rankingText == nil { return model.active.isEmpty ? "newest first" : "strongest colour match first" }
         return model.viewMode == .grid ? "sorted by how well they match" : "why each one matched"
     }
@@ -263,6 +264,7 @@ private struct ResultInteractions: ViewModifier {
             })
             .contextMenu {
                 Button("Show Details") { model.showDetails(hit.id) }
+                Button("Find Similar") { model.findSimilar(hit.id) }
                 Divider()
                 Button(targets.count > 1 ? "Show \(targets.count) in Finder" : "Show in Finder") {
                     model.reveal(targets)

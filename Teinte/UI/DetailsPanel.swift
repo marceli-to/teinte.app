@@ -261,6 +261,8 @@ private struct ImageDetails: View {
 
     private var actions: some View {
         HStack(spacing: 10) {
+            Button("Find similar") { model.findSimilar(id) }
+                .buttonStyle(AccentOutlineButtonStyle())
             Button("Show in Finder") { model.reveal([id]) }
                 .buttonStyle(AccentOutlineButtonStyle())
         }

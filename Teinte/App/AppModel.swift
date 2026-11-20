@@ -314,8 +314,10 @@ final class AppModel {
     private func parse(_ sentence: String) async {
         chipsEdited = false
         parseError = nil
+        // A "like …" chip isn't part of the sentence; it stays until it's removed or the search is cleared.
+        let seed = active.similarTo
         guard !sentence.isEmpty else {
-            parsed = nil; active = .empty; ruleParse = nil; parserUsed = ""
+            parsed = nil; active = QueryFilters(similarTo: seed); ruleParse = nil; parserUsed = ""
             runSearch(); return
         }
         let start = Date()
@@ -332,6 +334,7 @@ final class AppModel {
         }
         guard !Task.isCancelled else { return }
         parseMilliseconds = Date().timeIntervalSince(start) * 1000
+        result.similarTo = seed
         parsed = result
         active = result
         ruleParse = rules
@@ -344,6 +347,21 @@ final class AppModel {
         chipsEdited = true
         if case .look = selection { selection = .all; scope = .all }
         runSearch()
+    }
+
+    /// "Find similar": rank everything by closeness to this image, keeping the other chips.
+    func findSimilar(_ id: UUID) {
+        let name = hits.first { $0.id == id }?.features.fileName
+        Task {
+            let fileName: String
+            if let name { fileName = name } else if let f = await index?.features(for: id) { fileName = f.fileName } else { return }
+            if case .look = selection { selection = .all; scope = .all }
+            active.similarTo = SimilarSeed(id: id, fileName: fileName)
+            parsed?.similarTo = active.similarTo
+            // The seed isn't in its own results, and the old selection is about a different search.
+            clearSelection()
+            runSearch()
+        }
     }
 
     func clearSearch() {

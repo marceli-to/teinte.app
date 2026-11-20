@@ -169,22 +169,25 @@ public struct QueryFilters: Codable, Hashable, Sendable {
     public var utility: Presence?
     /// Only images Vision rates as well made.
     public var bestShots: Bool
+    /// "Find similar": rank by closeness to this image (content and colour).
+    public var similarTo: SimilarSeed?
 
     public init(
         colours: [ColourFilter] = [], people: PeopleFilter? = nil, faces: Presence? = nil,
         text: Presence? = nil, orientation: Orientation? = nil, labels: [String] = [], freeText: String? = nil,
         looks: [LookFilter] = [], styles: [StyleTag] = [], textQuery: String? = nil, utility: Presence? = nil,
-        bestShots: Bool = false
+        bestShots: Bool = false, similarTo: SimilarSeed? = nil
     ) {
         self.colours = colours; self.people = people; self.faces = faces; self.text = text
         self.orientation = orientation; self.labels = labels; self.freeText = freeText
         self.looks = looks; self.styles = styles; self.textQuery = textQuery; self.utility = utility
-        self.bestShots = bestShots
+        self.bestShots = bestShots; self.similarTo = similarTo
     }
 
     // Saved looks from before these fields existed decode with the defaults.
     enum CodingKeys: String, CodingKey {
         case colours, people, faces, text, orientation, labels, freeText, looks, styles, textQuery, utility, bestShots
+        case similarTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -201,7 +204,8 @@ public struct QueryFilters: Codable, Hashable, Sendable {
             styles: try c.decodeIfPresent([StyleTag].self, forKey: .styles) ?? [],
             textQuery: try c.decodeIfPresent(String.self, forKey: .textQuery),
             utility: try c.decodeIfPresent(Presence.self, forKey: .utility),
-            bestShots: try c.decodeIfPresent(Bool.self, forKey: .bestShots) ?? false)
+            bestShots: try c.decodeIfPresent(Bool.self, forKey: .bestShots) ?? false,
+            similarTo: try c.decodeIfPresent(SimilarSeed.self, forKey: .similarTo))
     }
 
     public static let empty = QueryFilters()
@@ -209,6 +213,7 @@ public struct QueryFilters: Codable, Hashable, Sendable {
     public var hasStructuredFilters: Bool {
         !colours.isEmpty || people != nil || faces != nil || text != nil || orientation != nil || !labels.isEmpty
             || !looks.isEmpty || !styles.isEmpty || textQuery != nil || utility != nil || bestShots
+            || similarTo != nil
     }
 
     public var isEmpty: Bool { !hasStructuredFilters && (freeText?.isEmpty ?? true) }
@@ -257,6 +262,7 @@ public struct FilterChip: Hashable, Sendable, Identifiable {
         case textQuery(String)
         case utility(Presence)
         case bestShots
+        case similar(SimilarSeed)
     }
 
     public var kind: Kind
@@ -293,13 +299,15 @@ public struct FilterChip: Hashable, Sendable, Identifiable {
         case .textQuery(let q): "text: \(q)"
         case .utility(let p): p == .with ? "screenshots & documents" : "no screenshots"
         case .bestShots: "best shots"
+        case .similar(let seed): "like \(seed.fileName)"
         }
     }
 }
 
 extension QueryFilters {
     public var chips: [FilterChip] {
-        var result: [FilterChip] = colours.map { FilterChip(kind: .colour($0)) }
+        var result: [FilterChip] = similarTo.map { [FilterChip(kind: .similar($0))] } ?? []
+        result += colours.map { FilterChip(kind: .colour($0)) }
         if let people { result.append(FilterChip(kind: .people(people))) }
         if let faces { result.append(FilterChip(kind: .faces(faces))) }
         if let text { result.append(FilterChip(kind: .text(text))) }
@@ -329,6 +337,7 @@ extension QueryFilters {
         case .textQuery: copy.textQuery = nil
         case .utility: copy.utility = nil
         case .bestShots: copy.bestShots = false
+        case .similar: copy.similarTo = nil
         }
         return copy
     }

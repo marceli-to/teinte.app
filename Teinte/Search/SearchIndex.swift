@@ -72,8 +72,14 @@ actor SearchIndex {
             labelScores: labelScores?.count == query.hardLabels.count ? labelScores : nil,
             styleScores: styleScores?.count == query.filters.styles.count ? styleScores : nil,
             calibration: calibration)
-        let ranked = Ranker.rank(candidates: candidates, in: snapshot, queryVector: vector,
+        // "Find similar": the seed image (if it's still in the library) drives the order; the text, if any, adds to it.
+        let ranked: [RankedResult]
+        if let seed = query.filters.similarTo, let seedRow = snapshot.row(for: seed.id) {
+            ranked = Ranker.rankSimilar(candidates: candidates, in: snapshot, seedRow: seedRow, textVector: vector)
+        } else {
+            ranked = Ranker.rank(candidates: candidates, in: snapshot, queryVector: vector,
                                  filters: query.filters, calibration: calibration)
+        }
         let hits = ranked.map { r in
             Hit(id: snapshot.rows[r.row].id, features: snapshot.rows[r.row], score: r.score, match: r.match)
         }
