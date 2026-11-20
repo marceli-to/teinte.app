@@ -100,6 +100,16 @@ struct ChipsRow: View {
                         .foregroundStyle(Theme.muted.opacity(0.7))
                         .frame(height: 32)
                 }
+                if model.suggestsTranslationDownload {
+                    Button { model.downloadTranslation() } label: {
+                        Label("Download German translation", systemImage: "arrow.down.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .font(.mono(12))
+                    .foregroundStyle(Theme.accent)
+                    .frame(height: 32)
+                    .help("Words Teinte doesn’t know yet stay in German. Apple’s translation fixes that; it runs on this Mac.")
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 

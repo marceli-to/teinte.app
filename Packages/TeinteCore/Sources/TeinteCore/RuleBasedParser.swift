@@ -331,8 +331,11 @@ struct ParseState {
             let t = tokens[i].text
             if t == "high", text(i + 1) == "quality" { consume(i...(i + 1)); found = true; continue }
             if t == "well", text(i + 1) == "composed" { consume(i...(i + 1)); found = true; continue }
-            guard praise.contains(t), let next = text(i + 1),
-                  Lexicon.imageNouns.contains(next) || next == "quality" else { continue }
+            // "best photos", "best beach photos": an image noun within two words.
+            guard praise.contains(t), let next = text(i + 1) else { continue }
+            let nounNear = Lexicon.imageNouns.contains(next) || next == "quality"
+                || (text(i + 2).map(Lexicon.imageNouns.contains) ?? false)
+            guard nounNear else { continue }
             consume(i...i)
             if i > 0, ["my", "the", "our"].contains(tokens[i - 1].text) { consume((i - 1)...(i - 1)) }
             found = true

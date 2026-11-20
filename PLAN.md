@@ -375,6 +375,7 @@ Added 2026-11-20 (your requirements, in this order, before FSEvents and look reo
 2. **Find similar.** Right-click → "Find similar", or from the details panel. The seed image becomes a chip with a thumbnail ("like IMG_2041.jpg") that combines with other filters. Ranking blends the image embedding (what's in it) with palette distance (its colours). Replaces "More like this" from Phase 3.
 3. **Export.** Copy the selected originals, never move them, into one flat folder you choose, or into a zip. Name clashes get a "-2" suffix. The zip is made with `NSFileCoordinator` (`.forUploading`), so there's no dependency. Needs the `files.user-selected.read-write` entitlement; source folders stay read-only by design.
 4. **Language.** The UI is localised (String Catalog: English and German, chip titles included). A search-language setting defaults to the system language; non-English queries are translated to English on the device with Apple's Translation framework before parsing and embedding. Quoted text is not translated (it's matched against the recognised text), and Vision text recognition also runs in German. Foundation Models, when available, reads the language directly. A multilingual model (SigLIP 2, v2) could later drop the translation step.
+   Built (2026-11-20): Translation needs a one-time language download that only a SwiftUI view can ask for, so there's an offline fallback, `GermanGlossary` (TeinteCore): a word list with adjective endings, compounds and the German names of common Vision labels, which turns a German search into English word by word. Order: Apple Translation if installed, else the glossary. Vision text recognition already auto-detects the language, so no re-analysis. Vision labels show German names from `LabelNames` (~260 most common), English otherwise.
 
 Acceptance:
 - [ ] Side-by-side screenshots against `design/01–03` in light mode at the same window size.
@@ -383,7 +384,7 @@ Acceptance:
 - [ ] A saved look restores the exact chips and results after relaunch.
 - [ ] Selecting several images and exporting them to a folder or a zip copies the originals; the details panel shows everything the analysis knows about the selected image.
 - [ ] "Find similar" on an image returns visually and chromatically close images first and combines with other chips.
-- [ ] «blaue Bilder mit Menschen» gives the same chips as «blue images with people», and the UI reads German when the system language is German.
+- [x] «blaue Bilder mit Menschen» gives the same chips as «blue images with people», and the UI reads German when the system language is German.
 
 ### Phase 3 — Mac polish
 Scope:

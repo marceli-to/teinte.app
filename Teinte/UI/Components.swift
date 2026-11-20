@@ -235,7 +235,7 @@ struct ViewModeToggle: View {
         .accessibilityLabel("View")
     }
 
-    private func segment(_ value: ViewMode, symbol: String, label: String) -> some View {
+    private func segment(_ value: ViewMode, symbol: String, label: LocalizedStringKey) -> some View {
         Segment(selected: mode == value, symbol: symbol, label: label) {
             withAnimation(.easeOut(duration: 0.15)) { mode = value }
         }
@@ -244,7 +244,7 @@ struct ViewModeToggle: View {
     private struct Segment: View {
         let selected: Bool
         let symbol: String
-        let label: String
+        let label: LocalizedStringKey
         let action: () -> Void
         @State private var hovering = false
 

@@ -116,8 +116,8 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
 
 ### Where we are (2026-11-20, end of session)
 
-- Everything is committed and pushed on `main`. The app builds, and all tests pass (65 core + 7 app). Your library is on analysis v3.
-- Step 3 status: selection + details ✅, Find similar ✅, export ✅. **Next: step 3.4, language** (German UI and search).
+- Everything is committed and pushed on `main`. The app builds, and all tests pass (74 core + 7 app). Your library is on analysis v3.
+- Step 3 status: selection + details ✅, Find similar ✅, export ✅, language ✅. **Next: FSEvents folder watching with a launch reconcile**, then drag-to-reorder for saved looks.
 - Handy tools outside the repo (rebuild if `/tmp` was cleared):
   - `/tmp/teinte-probe/probe "<text>"`: SigLIP cosines over `embeddings.bin`.
   - `/tmp/teinte-colour/colour <file>`: colour analysis of one image.
@@ -150,7 +150,22 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
    - Entitlement: `files.user-selected.read-write` (was read-only). Source folders stay read-only: their bookmarks are made with `securityScopeAllowOnlyReadAccess`.
    - Tests: 65 core + 7 app pass (naming, a real copy with clashes, a zip whose contents are checked with `zipinfo`).
    - Screenshots are in `design/review/export/`.
-4. Language (German UI + search)
+4. Language (German UI + search) ✅
+   - The UI is in German when macOS is set to German. Two String Catalogs: the app's (153 strings) and the core package's (chip titles, looks, styles, colour names). The German uses "du", ß, and Apple's "Sichern …" style.
+   - Chips read naturally: "überwiegend blau", "etwas Rot", "Hintergrund weiß", "3 Personen", "goldene Stunde", "wie picsum_437.jpg". Plurals work in both languages ("1 person" / "2 people").
+   - Vision labels have German names for the ~260 most common ones in your library ("Hund", "Leuchtturm", "Gebäude"). The rest stay in English.
+   - Search: Teinte › Settings… › Search language (English / German). It defaults to the system language. A German search is turned into English before parsing and ranking. English typed in German mode is recognised and left alone.
+     - With Apple's Translation installed, the whole sentence is translated on the device.
+     - Without it, a built-in word list (`GermanGlossary`) covers colours with their endings, people and counts, looks, styles, text, shape, compounds ("Strandfotos", "Blautöne") and ~400 common subjects. Words it doesn't know stay German in the free-text chip, and a "Download German translation" link appears under the search bar.
+     - Text in quotes is never translated.
+     - Foundation Models gets the English sentence, or the original German when only the word list ran. Its instructions now include German examples (untested here: Apple Intelligence is off).
+   - Results: «blaue Bilder mit Menschen» gives the same chips and the same results as «blue images with people». All 20 example sentences, in German, parse to the same filters as in English. «rotes Gebäude» puts the three red buildings first (98 / 93 / 92 %).
+   - On this Mac, German–English translation is "supported, not installed", so the screenshots use the word list. Please try the download link once (it shows Apple's own prompt).
+   - Vision text recognition already detects the language automatically, so German text is recognised without a re-analysis.
+   - Fix along the way: "best" + a subject + "photos" ("my best beach photos") now counts as best shots.
+   - Screenshots are in `design/review/german/`.
+   - Tests: 74 core + 7 app pass.
+   - Noticed, not caused by this step: «blue images with people» shows 40 / 9 / 4 % in the app, on the last commit too, while the 2b.1 simulation gave 64 / 53 / 50. Worth a look with the match % calibration.
 
 Then the rest of Phase 2: FSEvents folder watching with a launch reconcile, and drag-to-reorder for saved looks.
 

@@ -114,7 +114,7 @@ struct ResultsHeader: View {
         }
     }
 
-    private var hint: String {
+    private var hint: LocalizedStringKey {
         if model.active.similarTo != nil, model.viewMode == .grid { return "most similar first" }
         if model.rankingText == nil { return model.active.isEmpty ? "newest first" : "strongest colour match first" }
         return model.viewMode == .grid ? "sorted by how well they match" : "why each one matched"
@@ -477,7 +477,7 @@ private struct ListRow: View {
         let bucket = matchedBucket
             ?? ColourProfile(bucketShares: f.bucketShares, palette: []).rankedBuckets.first?.bucket
         guard let bucket else { return "" }
-        return "\(Int((f.share(of: bucket) * 100).rounded()))% \(bucket.rawValue)"
+        return "\(Int((f.share(of: bucket) * 100).rounded()))% \(bucket.title)"
     }
 }
 
@@ -513,6 +513,11 @@ extension SearchIndex.Hit {
 extension ImageFeatures {
     static let peopleLabels: Set<String> = ["people", "person", "adult", "child", "baby", "crowd", "human"]
 
+    /// A Vision label in the app's language: "dog" → "Hund".
+    static func labelName(_ identifier: String) -> String {
+        LabelNames.displayName(identifier, language: CoreStrings.current.language)
+    }
+
     var aspect: CGFloat {
         guard pixelWidth > 0, pixelHeight > 0 else { return 4 / 3 }
         return CGFloat(pixelWidth) / CGFloat(pixelHeight)
@@ -521,11 +526,11 @@ extension ImageFeatures {
     /// "2 people · water · jetty"
     var seenInIt: String {
         var parts: [String] = []
-        if personCount > 0 { parts.append(personCount == 1 ? "1 person" : "\(personCount) people") }
+        if personCount > 0 { parts.append(String(localized: "\(personCount) people")) }
         // "1 person · people · adult" says the same thing three times.
-        var seen: Set<String> = personCount > 0 ? Self.peopleLabels : []
+        var seen: Set<String> = personCount > 0 ? Set(Self.peopleLabels.map(Self.labelName)) : []
         for label in labels {
-            let name = LabelResolver.displayName(label)
+            let name = Self.labelName(label)
             guard seen.insert(name).inserted else { continue }
             parts.append(name)
             if parts.count >= 3 { break }

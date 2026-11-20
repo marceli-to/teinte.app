@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Observation
 import SwiftData
+import Translation
 import UniformTypeIdentifiers
 import TeinteCore
 
@@ -36,6 +37,24 @@ final class AppModel {
     var active: QueryFilters = .empty
     var chipsEdited = false
     var parserUsed = ""
+    /// `query` in English: what the parser and the embedding model read.
+    var englishQuery = ""
+    /// How `englishQuery` was made: "", "Apple Translation" or "glossary".
+    var translationUsed = ""
+    /// The language searches are typed in. German searches are turned into English first.
+    var searchLanguage: SearchLanguage = SearchLanguage(
+        rawValue: UserDefaults.standard.string(forKey: "searchLanguage") ?? "") ?? .systemDefault() {
+        didSet {
+            guard searchLanguage != oldValue else { return }
+            UserDefaults.standard.set(searchLanguage.rawValue, forKey: "searchLanguage")
+            queryChanged()
+        }
+    }
+    /// German → English with Apple's Translation framework (needs a one-time download).
+    let translator = QueryTranslator()
+    var translationStatus: QueryTranslator.Status = .unknown
+    /// Set to ask SwiftUI's `.translationTask` for the language download.
+    var translationDownload: TranslationSession.Configuration?
     var ruleParse: QueryFilters?
     var parseError: String?
     var rankingText: String?
@@ -132,6 +151,9 @@ final class AppModel {
                                 dimension: e.dimension, modelID: e.modelID)
         }
         index = SearchIndex(dimension: dimension, embeddings: embeddingStore)
+
+        // Translation (German searches).
+        await refreshTranslation()
 
         // Parser.
         if FoundationModelsParser.isAvailable {
@@ -233,8 +255,8 @@ final class AppModel {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = true
-        panel.prompt = "Add"
-        panel.message = "Choose folders with images. Teinte only reads them."
+        panel.prompt = String(localized: "Add")
+        panel.message = String(localized: "Choose folders with images. Teinte only reads them.")
         guard panel.runModal() == .OK else { return }
         for url in panel.urls { Task { await addFolder(url) } }
     }
@@ -243,7 +265,7 @@ final class AppModel {
         let existing = folders.compactMap { access.folderURL($0.id) }
         switch FolderBookmark.overlap(of: url, with: existing) {
         case .same, .insideExisting(_):
-            message = "\(url.lastPathComponent) is already in your library."
+            message = String(localized: "\(url.lastPathComponent) is already in your library.")
             return
         case .containsExisting, .none:
             break // Phase 2 merges contained folders; for now they simply both stay.
@@ -257,7 +279,7 @@ final class AppModel {
             await rescan(info.id)
             await queue.start()
         } catch {
-            message = "Couldn't add \(url.lastPathComponent): \(error.localizedDescription)"
+            message = String(localized: "Couldn't add \(url.lastPathComponent): \(error.localizedDescription)")
         }
     }
 
@@ -324,12 +346,15 @@ final class AppModel {
             runSearch(); return
         }
         let start = Date()
-        let rules = ruleParser.parseSync(sentence)
+        let (english, translation) = await englishSentence(sentence)
+        guard !Task.isCancelled else { return }
+        let rules = ruleParser.parseSync(english)
         var result = rules
         var used = ruleParser.name
         if let fmParser {
             do {
-                result = try await fmParser.parse(sentence)
+                // Foundation Models reads German itself, so it gets the original when only the glossary ran.
+                result = try await fmParser.parse(translation == "glossary" ? sentence : english)
                 used = fmParser.name
             } catch {
                 parseError = "Foundation Models failed (\(error.localizedDescription)); used rules"
@@ -338,6 +363,8 @@ final class AppModel {
         guard !Task.isCancelled else { return }
         parseMilliseconds = Date().timeIntervalSince(start) * 1000
         result.similarTo = seed
+        englishQuery = english
+        translationUsed = translation
         parsed = result
         active = result
         ruleParse = rules
@@ -370,11 +397,44 @@ final class AppModel {
     func clearSearch() {
         parseTask?.cancel()
         query = ""
+        englishQuery = ""
         parsed = nil
         active = .empty
         chipsEdited = false
         if case .look = selection { selection = .all; scope = .all }
         runSearch()
+    }
+
+    // MARK: - Language
+
+    /// The sentence in English, and how it got there ("" when it already was).
+    /// German goes through Apple Translation when it's installed, otherwise through the glossary.
+    func englishSentence(_ sentence: String) async -> (String, String) {
+        guard searchLanguage == .german, GermanGlossary.isProbablyGerman(sentence) else { return (sentence, "") }
+        if let english = await translator.translate(sentence) { return (english, "Apple Translation") }
+        return (GermanGlossary.translate(sentence), "glossary")
+    }
+
+    func refreshTranslation() async {
+        await translator.refresh()
+        translationStatus = translator.status
+    }
+
+    /// Asks for the German → English download (the system shows its own prompt).
+    func downloadTranslation() {
+        translationDownload = TranslationSession.Configuration(source: QueryTranslator.source, target: QueryTranslator.target)
+    }
+
+    /// Called by `.translationTask` once the download prompt is done.
+    func translationDownloadFinished() async {
+        translationDownload = nil
+        await refreshTranslation()
+        if translationStatus == .installed { queryChanged() }
+    }
+
+    /// The glossary was used for this search because translation isn't installed yet.
+    var suggestsTranslationDownload: Bool {
+        translationUsed == "glossary" && translationStatus == .needsDownload && parsed?.freeText != nil
     }
 
     /// "of 1,240 images": the size of the current scope.
@@ -397,6 +457,7 @@ final class AppModel {
             lines.append("rules would say: \(rules.summary.isEmpty ? "—" : rules.summary)")
         }
         if !hardLabels.isEmpty { lines.append("label filters: \(hardLabels.joined(separator: ", "))") }
+        if !translationUsed.isEmpty { lines.append("english (\(translationUsed)): \(englishQuery)") }
         lines.append("ranking text: \(rankingText ?? "—")")
         lines.append("embeddings: \(embedderStatus)" + String(format: " · filter + rank %.1f ms", searchMilliseconds))
         if let parseError { lines.append(parseError) }
@@ -420,6 +481,15 @@ final class AppModel {
             active = look.filters
             chipsEdited = look.chipsEdited
             parserUsed = "saved look"
+            // Ranking reads the sentence in English.
+            Task {
+                let (english, translation) = await englishSentence(look.query)
+                guard selection == item else { return }
+                englishQuery = english
+                translationUsed = translation
+                runSearch()
+            }
+            return
         }
         runSearch()
     }
@@ -444,7 +514,7 @@ final class AppModel {
             await refreshLooks()
             selection = .look(look.id)
         } catch {
-            message = "Couldn't save the look: \(error.localizedDescription)"
+            message = String(localized: "Couldn't save the look: \(error.localizedDescription)")
         }
     }
 
@@ -485,7 +555,7 @@ final class AppModel {
         // Ranking text: the whole sentence ("a photo of red building" keeps the colour on the object),
         // or the parsed parts when the chips were edited or the sentence has a negation.
         let text = RankingPrompt.make(
-            sentence: query, filters: filters, hardLabels: resolved.hardLabels, softLabels: resolved.softLabels,
+            sentence: englishQuery, filters: filters, hardLabels: resolved.hardLabels, softLabels: resolved.softLabels,
             sentenceIsCurrent: !chipsEdited)
         rankingText = text
         let embedder = embedder
@@ -675,7 +745,6 @@ extension AppModel {
         let ids = ids ?? exportTargets
         guard !ids.isEmpty, exportProgress == nil else { return }
         let count = ids.count
-        let noun = count == 1 ? "image" : "\(count.grouped) images"
         let destination: URL
         switch kind {
         case .folder:
@@ -683,8 +752,8 @@ extension AppModel {
             panel.canChooseDirectories = true
             panel.canChooseFiles = false
             panel.canCreateDirectories = true
-            panel.prompt = "Export"
-            panel.message = "Choose a folder for the \(noun). The originals are copied; nothing is moved."
+            panel.prompt = String(localized: "Export")
+            panel.message = String(localized: "Choose a folder for \(count) images. The originals are copied; nothing is moved.")
             guard panel.runModal() == .OK, let url = panel.url else { return }
             destination = url
         case .zip:
@@ -692,8 +761,8 @@ extension AppModel {
             panel.allowedContentTypes = [.zip]
             panel.canCreateDirectories = true
             panel.nameFieldStringValue = "\(suggestedExportName).zip"
-            panel.prompt = "Export"
-            panel.message = "The \(noun) are copied into one zip; nothing is moved."
+            panel.prompt = String(localized: "Export")
+            panel.message = String(localized: "\(count) images are copied into one zip; nothing is moved.")
             guard panel.runModal() == .OK, let url = panel.url else { return }
             destination = url
         }
@@ -721,11 +790,13 @@ extension AppModel {
                 let missing = count - total + outcome.failed.count
                 if missing > 0 {
                     let names = outcome.failed.prefix(5).joined(separator: ", ")
-                    message = "\(missing) of \(count) images couldn't be copied"
-                        + (names.isEmpty ? " (their folder isn't available)." : ": \(names)\(outcome.failed.count > 5 ? " …" : "").")
+                    let list = "\(names)\(outcome.failed.count > 5 ? " …" : "")"
+                    message = names.isEmpty
+                        ? String(localized: "\(missing) of \(count) images couldn't be copied (their folder isn't available).")
+                        : String(localized: "\(missing) of \(count) images couldn't be copied: \(list).")
                 }
             case .failure(let error):
-                message = "Couldn't make the zip: \(error.localizedDescription)"
+                message = String(localized: "Couldn't make the zip: \(error.localizedDescription)")
             }
         }
     }
@@ -733,7 +804,7 @@ extension AppModel {
     /// "Teinte – mostly blue, with people", or "Teinte export".
     var suggestedExportName: String {
         let name = suggestedLookName.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-        return name.isEmpty ? "Teinte export" : "Teinte – \(name.prefix(60))"
+        return name.isEmpty ? String(localized: "Teinte export") : "Teinte – \(name.prefix(60))"
     }
 }
 

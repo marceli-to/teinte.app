@@ -132,6 +132,11 @@ final class FoundationModelsParser: QueryParsing, @unchecked Sendable {
     "a sign saying open" → textQuery "open".
     "my best beach photos" → labels [beach], bestShots true.
     "cozy" → freeText "cozy".
+    The request may be German. Fill the fields the same way, and write labels and freeText in English; \
+    keep textQuery exactly as written:
+    "blaue Bilder mit Menschen" → colours [blue mostly], people anyPeople.
+    "Sonnenuntergang am See, keine Menschen" → people noPeople, freeText "sunset at the lake".
+    "ein Schild mit der Aufschrift Offen" → textQuery "Offen".
     """
 
     func prewarm() {

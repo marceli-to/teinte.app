@@ -40,7 +40,7 @@ struct Sidebar: View {
 
     // MARK: Sections
 
-    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .sectionLabel()
@@ -51,7 +51,7 @@ struct Sidebar: View {
         }
     }
 
-    private func row(_ item: SidebarItem, title: String, count: Int) -> some View {
+    private func row(_ item: SidebarItem, title: LocalizedStringKey, count: Int) -> some View {
         Button { model.select(item) } label: {
             HStack {
                 Text(title).font(.sidebarItem).foregroundStyle(Theme.ink)

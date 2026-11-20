@@ -106,11 +106,12 @@ struct ImportScreen: View {
 
     private var eta: String {
         let p = model.progress
-        guard p.isRunning else { return p.done < p.total ? "paused" : "done" }
-        guard let s = p.remainingSeconds else { return "starting…" }
-        if s < 60 { return "less than a minute left" }
-        if s < 3600 { return "~\(Int((s / 60).rounded())) min left" }
-        return String(format: "~%.1f h left", s / 3600)
+        guard p.isRunning else { return p.done < p.total ? String(localized: "paused") : String(localized: "done") }
+        guard let s = p.remainingSeconds else { return String(localized: "starting…") }
+        if s < 60 { return String(localized: "less than a minute left") }
+        if s < 3600 { return String(localized: "~\(Int((s / 60).rounded())) min left") }
+        let hours = (s / 3600).formatted(.number.precision(.fractionLength(1)))
+        return String(localized: "~\(hours) h left")
     }
 }
 
@@ -162,7 +163,7 @@ struct ColourBandView: View {
 /// Dashed drop zone with "Choose folder…". Highlights while a folder is dragged over it.
 struct DropZone: View {
     @Environment(AppModel.self) private var model
-    let title: String
+    let title: LocalizedStringKey
     @State private var targeted = false
 
     var body: some View {

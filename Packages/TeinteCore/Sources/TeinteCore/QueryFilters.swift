@@ -45,14 +45,9 @@ public struct ColourFilter: Codable, Hashable, Sendable {
 public enum LookFilter: String, Codable, Hashable, Sendable, CaseIterable {
     case bright, dark, highContrast, lowContrast, vivid, muted, warm, cool, blackAndWhite
 
-    public var title: String {
-        switch self {
-        case .highContrast: "high contrast"
-        case .lowContrast: "low contrast"
-        case .blackAndWhite: "black & white"
-        default: rawValue
-        }
-    }
+    /// "high contrast", "kontrastreich".
+    public var title: String { title(.current) }
+    public func title(_ strings: CoreStrings) -> String { strings["look.\(rawValue)"] }
 
     /// Thresholds, tuned on a 993-image library (analysis v3) so each look picks roughly
     /// the top 10–15 %: brightness p50 0.56 / p90 0.74, contrast p50 0.20 / p90 0.27,
@@ -91,14 +86,9 @@ public enum LookFilter: String, Codable, Hashable, Sendable, CaseIterable {
 public enum StyleTag: String, Codable, Hashable, Sendable, CaseIterable {
     case goldenHour, overcast, studioLight, filmGrain, minimal, aerial, macro, night
 
-    public var title: String {
-        switch self {
-        case .goldenHour: "golden hour"
-        case .studioLight: "studio light"
-        case .filmGrain: "film grain"
-        default: rawValue
-        }
-    }
+    /// "golden hour", "goldene Stunde".
+    public var title: String { title(.current) }
+    public func title(_ strings: CoreStrings) -> String { strings["style.\(rawValue)"] }
 
     /// The text the image embedding is compared with.
     public var prompt: String {
@@ -268,38 +258,42 @@ public struct FilterChip: Hashable, Sendable, Identifiable {
     public var kind: Kind
     public var id: Kind { kind }
 
-    public var title: String {
+    /// The chip's text in the app's language.
+    public var title: String { title(.current) }
+
+    public func title(_ l: CoreStrings) -> String {
         switch kind {
         case .colour(let f):
-            switch (f.mode, f.region) {
-            case (.mostly, .background?): "\(f.bucket.rawValue) background"
-            case (.contains, .background?): "some \(f.bucket.rawValue) in the background"
-            case (.without, .background?): "no \(f.bucket.rawValue) background"
-            case (.mostly, .subject?): "\(f.bucket.rawValue) subject"
-            case (.contains, .subject?): "some \(f.bucket.rawValue) in the subject"
-            case (.without, .subject?): "no \(f.bucket.rawValue) subject"
-            case (.mostly, nil): "mostly \(f.bucket.rawValue)"
-            case (.contains, nil): "some \(f.bucket.rawValue)"
-            case (.without, nil): "no \(f.bucket.rawValue)"
+            let adjective = l.colour(f.bucket), noun = l.colourNoun(f.bucket)
+            return switch (f.mode, f.region) {
+            case (.mostly, .background?): l.format("%@ background", adjective)
+            case (.contains, .background?): l.format("some %@ in the background", noun)
+            case (.without, .background?): l.format("no %@ background", noun)
+            case (.mostly, .subject?): l.format("%@ subject", adjective)
+            case (.contains, .subject?): l.format("some %@ in the subject", noun)
+            case (.without, .subject?): l.format("no %@ subject", noun)
+            case (.mostly, nil): l.format("mostly %@", adjective)
+            case (.contains, nil): l.format("some %@", noun)
+            case (.without, nil): l.format("no %@", noun)
             }
         case .people(let p):
-            switch p {
-            case .any: "with people"
-            case .none: "no people"
-            case .exactly(let n): n == 1 ? "1 person" : "\(n) people"
-            case .atLeast(let n): "\(n)+ people"
+            return switch p {
+            case .any: l["with people"]
+            case .none: l["no people"]
+            case .exactly(let n): l.format("%lld people", n)
+            case .atLeast(let n): l.format("%lld or more people", n)
             }
-        case .faces(let p): p == .with ? "with faces" : "no faces"
-        case .text(let p): p == .with ? "with text" : "no text"
-        case .orientation(let o): o.rawValue
-        case .label(let l): l
-        case .freeText(let t): "“\(t)”"
-        case .look(let l): l.title
-        case .style(let t): t.title
-        case .textQuery(let q): "text: \(q)"
-        case .utility(let p): p == .with ? "screenshots & documents" : "no screenshots"
-        case .bestShots: "best shots"
-        case .similar(let seed): "like \(seed.fileName)"
+        case .faces(let p): return l[p == .with ? "with faces" : "no faces"]
+        case .text(let p): return l[p == .with ? "with text" : "no text"]
+        case .orientation(let o): return l["orientation.\(o.rawValue)"]
+        case .label(let id): return LabelNames.displayName(id, language: l.language)
+        case .freeText(let t): return l.format("quoted %@", t)
+        case .look(let look): return look.title(l)
+        case .style(let tag): return tag.title(l)
+        case .textQuery(let q): return l.format("text: %@", q)
+        case .utility(let p): return l[p == .with ? "screenshots & documents" : "no screenshots"]
+        case .bestShots: return l["best shots"]
+        case .similar(let seed): return l.format("like %@", seed.fileName)
         }
     }
 }

@@ -78,6 +78,12 @@ struct TeinteApp: App {
                 Divider()
             }
         }
+
+        Settings {
+            // The download prompt itself is attached to the main window (MainView).
+            SettingsView()
+                .environment(model)
+        }
     }
 
     /// A text field or text view is being edited (the search bar, a rename field).

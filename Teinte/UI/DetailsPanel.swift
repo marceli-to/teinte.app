@@ -122,24 +122,24 @@ private struct ImageDetails: View {
 
     private func facts(_ info: AppModel.ImageInfo) -> some View {
         let f = info.features
-        var rows: [(String, String)] = [("Size", "\(f.pixelWidth) × \(f.pixelHeight)")]
+        var rows: [(String, String)] = [(String(localized: "Size"), "\(f.pixelWidth) × \(f.pixelHeight)")]
         if let d = info.details {
-            rows.append(("File", ByteCountFormatter.string(fromByteCount: d.fileSize, countStyle: .file)))
+            rows.append((String(localized: "File"), ByteCountFormatter.string(fromByteCount: d.fileSize, countStyle: .file)))
         }
-        if let taken = exif?.taken { rows.append(("Taken", taken.formatted(date: .abbreviated, time: .shortened))) }
-        if let camera = exif?.camera { rows.append(("Camera", camera)) }
-        if let lens = exif?.settings { rows.append(("Settings", lens)) }
+        if let taken = exif?.taken { rows.append((String(localized: "Taken"), taken.formatted(date: .abbreviated, time: .shortened))) }
+        if let camera = exif?.camera { rows.append((String(localized: "Camera"), camera)) }
+        if let lens = exif?.settings { rows.append((String(localized: "Settings"), lens)) }
         if let d = info.details, d.contentModified > .distantPast {
-            rows.append(("Modified", d.contentModified.formatted(date: .abbreviated, time: .shortened)))
+            rows.append((String(localized: "Modified"), d.contentModified.formatted(date: .abbreviated, time: .shortened)))
         }
-        rows.append(("Added", f.addedAt.formatted(date: .abbreviated, time: .omitted)))
+        rows.append((String(localized: "Added"), f.addedAt.formatted(date: .abbreviated, time: .omitted)))
         return VStack(alignment: .leading, spacing: 6) {
             ForEach(rows, id: \.0) { row in
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(row.0)
                         .font(.sans(12))
                         .foregroundStyle(Theme.muted)
-                        .frame(width: 64, alignment: .leading)
+                        .frame(width: 84, alignment: .leading)
                     Text(row.1)
                         .font(.mono(12))
                         .foregroundStyle(Theme.ink)
@@ -170,7 +170,7 @@ private struct ImageDetails: View {
                 ForEach(topBuckets(f.bucketShares), id: \.0) { bucket, share in
                     HStack(spacing: 10) {
                         SwatchDot(bucket: bucket, size: 12)
-                        Text(bucket.rawValue).font(.sans(13)).foregroundStyle(Theme.ink)
+                        Text(bucket.title).font(.sans(13)).foregroundStyle(Theme.ink)
                         Spacer()
                         Text(percent(share)).font(.mono(12)).foregroundStyle(Theme.muted)
                     }
@@ -178,8 +178,8 @@ private struct ImageDetails: View {
                 }
             }
             if f.subjectShares.count == f.bucketShares.count {
-                regionRow("Subject", shares: f.subjectShares)
-                regionRow("Background", shares: f.backgroundShares)
+                regionRow(String(localized: "Subject"), shares: f.subjectShares)
+                regionRow(String(localized: "Background"), shares: f.backgroundShares)
             }
         }
     }
@@ -192,11 +192,11 @@ private struct ImageDetails: View {
                     SwatchDot(bucket: bucket, size: 10)
                     Text(percent(share)).font(.mono(11)).foregroundStyle(Theme.ink)
                 }
-                .help(bucket.rawValue)
+                .help(bucket.title)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title): " + topBuckets(shares).prefix(3).map { "\($0.0.rawValue) \(percent($0.1))" }.joined(separator: ", "))
+        .accessibilityLabel(title + ": " + topBuckets(shares).prefix(3).map { "\($0.0.title) \(percent($0.1))" }.joined(separator: ", "))
     }
 
     private func look(_ info: AppModel.ImageInfo) -> some View {
@@ -224,13 +224,13 @@ private struct ImageDetails: View {
     private func seen(_ info: AppModel.ImageInfo) -> some View {
         let f = info.features
         var people: [String] = []
-        if f.personCount > 0 { people.append(f.personCount == 1 ? "1 person" : "\(f.personCount) people") }
-        if f.faceCount > 0 { people.append(f.faceCount == 1 ? "1 face" : "\(f.faceCount) faces") }
-        if f.isScreenshotOrDocument { people.append("screenshot or document") }
+        if f.personCount > 0 { people.append(String(localized: "\(f.personCount) people")) }
+        if f.faceCount > 0 { people.append(String(localized: "\(f.faceCount) faces")) }
+        if f.isScreenshotOrDocument { people.append(String(localized: "screenshot or document")) }
         let labels = (info.details?.labels ?? f.labels.map { ($0, 0) })
             .filter { !ImageFeatures.peopleLabels.contains($0.0) || f.personCount == 0 }
         var seenNames = Set<String>()
-        let unique = labels.filter { seenNames.insert(LabelResolver.displayName($0.0)).inserted }.prefix(14)
+        let unique = labels.filter { seenNames.insert(ImageFeatures.labelName($0.0)).inserted }.prefix(14)
         return Section("Seen in it") {
             if people.isEmpty && unique.isEmpty {
                 Text("Nothing recognised.").font(.sans(13)).foregroundStyle(Theme.muted)
@@ -238,8 +238,8 @@ private struct ImageDetails: View {
                 FlowLayout(spacing: 6) {
                     ForEach(people, id: \.self) { Tag(text: $0, symbol: "person") }
                     ForEach(Array(unique), id: \.0) { label, confidence in
-                        Tag(text: LabelResolver.displayName(label))
-                            .help(confidence > 0 ? "Vision: \(percent(confidence)) sure" : "")
+                        Tag(text: ImageFeatures.labelName(label))
+                            .help(confidence > 0 ? String(localized: "Vision: \(percent(confidence)) sure") : "")
                     }
                 }
             }
@@ -338,7 +338,7 @@ private struct SelectionDetails: View {
                     ForEach(commonBuckets, id: \.self) { bucket in
                         HStack(spacing: 6) {
                             SwatchDot(bucket: bucket, size: 10)
-                            Text(bucket.rawValue).font(.sans(12, .medium)).foregroundStyle(Theme.ink)
+                            Text(bucket.title).font(.sans(12, .medium)).foregroundStyle(Theme.ink)
                         }
                         .padding(.horizontal, 10)
                         .frame(height: 26)
@@ -372,10 +372,10 @@ private struct SelectionDetails: View {
 // MARK: - Pieces
 
 private struct Section<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     @ViewBuilder let content: Content
 
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
@@ -408,22 +408,22 @@ private struct Tag: View {
 
 /// "Brightness ▬▬▬▬──── 62%"
 private struct Meter: View {
-    let title: String
+    let title: LocalizedStringKey
     let value: Float
-    var note: String?
+    var note: LocalizedStringKey?
 
     var body: some View {
         let v = min(max(value, 0), 1)
         HStack(spacing: 10) {
             Text(title).font(.sans(12)).foregroundStyle(Theme.muted).frame(width: 76, alignment: .leading)
             MatchBar(value: CGFloat(v))
-            Text(note ?? percent(v))
+            Group { if let note { Text(note) } else { Text(verbatim: percent(v)) } }
                 .font(.mono(11))
                 .foregroundStyle(note == nil ? Theme.muted : Theme.accent)
                 .frame(width: 64, alignment: .trailing)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title) \(percent(v))\(note.map { ", \($0)" } ?? "")")
+        .accessibilityLabel(Text(title) + Text(verbatim: " \(percent(v))") + (note.map { Text(verbatim: ", ") + Text($0) } ?? Text(verbatim: "")))
     }
 }
 

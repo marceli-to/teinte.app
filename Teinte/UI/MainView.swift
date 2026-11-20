@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 import TeinteCore
 
 /// The window: a transparent title bar ("Teinte" + view toggle), then sidebar and results,
@@ -40,7 +41,7 @@ struct MainView: View {
         .containerBackground(Theme.ground, for: .window)
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                Text("Teinte")
+                Text(verbatim: "Teinte")
                     .font(.title)
                     .foregroundStyle(Theme.ink)
                     .padding(.leading, 4)
@@ -65,6 +66,13 @@ struct MainView: View {
             let folders = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
             for url in folders { Task { await model.addFolder(url) } }
             return !folders.isEmpty
+        }
+        // The German → English download, when asked for in Settings or under the search bar.
+        .translationTask(model.translationDownload) { session in
+            // The session lives only for this closure; nothing else touches it.
+            nonisolated(unsafe) let session = session
+            try? await session.prepareTranslation()
+            await model.translationDownloadFinished()
         }
         .alert("Teinte", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK") { model.message = nil }
