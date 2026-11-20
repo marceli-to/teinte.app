@@ -201,7 +201,7 @@ Plan: 1. Quick Look, drag out, ⌘⌫ → 2. hover, pressed and focus states, ke
 
 Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/⌘2, ⌘S, ⌘O, arrow keys.
 
-### Step 1 — Quick Look, drag out, remove folder (built, waiting for your check)
+### Step 1 — Quick Look, drag out, remove folder ✅ (2026-11-20)
 
 - Quick Look: Space (or File › Quick Look, ⌘Y) opens the system preview of the focused image. With several selected, it shows those. While it's open, the arrow keys move through the results and the preview follows (with several selected, they step through the selection, as in Finder). Space closes it.
   - Double-click still opens the details panel (your Phase 2 choice), not Quick Look.
@@ -210,5 +210,22 @@ Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/�
 - German: "Übersicht", "Ordner entfernen …", and the dialog texts.
 - Tests: 81 core + 11 app pass. Drag and Quick Look are untested here: the shell can't press keys or drag.
 
-**Your turn:** select an image and press Space, then use the arrows. Drag one image (and a selection of a few) to Finder and into a Mail message. Select a folder and press ⌘⌫, then cancel.
+- Your feedback: all of it works.
+
+Step 2 (hover, pressed and focus states, keyboard-only pass) is postponed at your request; steps 3 and 4 come first.
+
+### Step 3 — Dark mode (screenshots ready for your review)
+
+- Dark mode already followed the system through the `Theme` tokens. Fresh screenshots of every screen in light and dark are in `design/review/dark/`: grid, list, scrolled header, import screen, details panel, several selected, find similar.
+- My read: contrast and the accent hold up; the chips, search bar and details panel sit well on the dark ground. Two things to judge: dimmed tiles (35 % with a selection) get quite dark on the dark ground, and the import screen's "Choose folder…" button turns light (it's the inverted ink button). Flat pill ends on "Save as look" are the screenshot renderer, not the app.
+- Nothing changed yet; I'll polish from your notes.
+
+### Step 4 — App icon ✅ (built, waiting for your check)
+
+- Redrawn from `design/04` as three SVG layers in `design/icon/` (back print, front print, artwork with the landscape and its three colour dots), each on a 1024 canvas.
+- `Teinte/AppIcon.icon` is the macOS 26 layered Icon Composer file: two groups (front print + artwork on top, back print below), neutral shadows, ground-colour fill. The build compiles it into `AppIcon.icns` + `Assets.car` (all sizes), so there's no separate `.appiconset`: the deployment target is macOS 26, where the `.icon` is the source.
+- The 16–1024 px PNGs, exported with Icon Composer's `ictool`, are in `design/icon/png/`. The default, dark and clear renderings are side by side in `design/icon/renditions.png`.
+- Open `Teinte/AppIcon.icon` in Icon Composer to tweak glass, shadows or the dark fill.
+
+**Your turn:** look through `design/review/dark/` and tell me what to change. Check the icon in the Dock (Teinte is running with it) and in `design/icon/renditions.png`.
 ## Phase 4 — Release prep
