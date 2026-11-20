@@ -116,12 +116,14 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
 
 ### Where we are (2026-11-20, end of session)
 
-- Everything is committed on `main`. The app builds, and all tests pass (54 core + 4 app). Your library is on analysis v3.
+- Everything is committed and pushed on `main`. The app builds, and all tests pass (65 core + 7 app). Your library is on analysis v3.
+- Step 3 status: selection + details ✅, Find similar ✅, export ✅. **Next: step 3.4, language** (German UI and search).
 - Handy tools outside the repo (rebuild if `/tmp` was cleared):
   - `/tmp/teinte-probe/probe "<text>"`: SigLIP cosines over `embeddings.bin`.
   - `/tmp/teinte-colour/colour <file>`: colour analysis of one image.
   - `/tmp/teinte-sheet/stats.py`: decodes the SwiftData store and prints look/aesthetics distributions.
   - `/tmp/teinte-sheet/sheet`: contact sheets.
+  - `/tmp/teinte-similar/run.sh out.png <image weight> <colour weight> <seed files…>`: Find similar contact sheets and match %, replicating `SimilarityRanking` in Python.
 - Backup of the v2-analysed store: `/tmp/teinte-backup-v2`.
 
 ### Step 3 — Your new requirements (agreed 2026-11-20)
