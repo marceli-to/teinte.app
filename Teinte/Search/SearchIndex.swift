@@ -97,6 +97,11 @@ actor SearchIndex {
         return Outcome(hits: hits, total: snapshot.count, filteredCount: candidates.count, milliseconds: ms)
     }
 
+    /// True when the free text is a word some image shows ("ellesse"), so it should filter, not just rank.
+    func shouldPromoteToTextQuery(_ freeText: String) -> Bool {
+        FilterEngine.shouldPromoteToTextQuery(freeText, in: snapshot)
+    }
+
     func features(for id: UUID) -> ImageFeatures? {
         snapshot.row(for: id).map { snapshot.rows[$0] }
     }

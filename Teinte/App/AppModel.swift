@@ -454,6 +454,13 @@ final class AppModel {
                 parseError = "Foundation Models failed (\(error.localizedDescription)); used rules"
             }
         }
+        // A bare word that some image shows ("ellesse") filters on the recognised text, like
+        // "the word ellesse" would. The ranking still reads the whole sentence.
+        if result.textQuery == nil, let free = result.freeText, let index,
+           await index.shouldPromoteToTextQuery(free) {
+            result.textQuery = free
+            result.freeText = nil
+        }
         guard !Task.isCancelled else { return }
         parseMilliseconds = Date().timeIntervalSince(start) * 1000
         result.similarTo = seed

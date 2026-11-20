@@ -117,6 +117,7 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
 ### Where we are (2026-11-20, end of session)
 
 - Everything is committed and pushed on `main`. The app builds, and all tests pass (74 core + 7 app). Your library is on analysis v3.
+- Fix: a bare word that an image shows («ellesse») now filters on the recognised text (chip «Text: ellesse») instead of ranking all images. Text search matches word starts, so «art» no longer finds «start».
 - Step 3 status: selection + details ✅, Find similar ✅, export ✅, language ✅. Folder watching ✅. **Next: drag-to-reorder for saved looks.**
 - Step 3.4 checked by you: German search and the translation download work. You chose "du" with Swiss "ss" (no ß), which is done.
 - Handy tools outside the repo (rebuild if `/tmp` was cleared):

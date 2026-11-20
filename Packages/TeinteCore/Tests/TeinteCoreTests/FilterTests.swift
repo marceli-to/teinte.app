@@ -153,6 +153,20 @@ struct FilterTests {
         #expect(run(imgs, QueryFilters(bestShots: true)) == [0])
         #expect(run(imgs, QueryFilters(textQuery: "cafe sale")) == [0])
         #expect(run(imgs, QueryFilters(textQuery: "closed")).isEmpty)
+        #expect(run(imgs, QueryFilters(textQuery: "caf")) == [0])  // a word's start
+        #expect(run(imgs, QueryFilters(textQuery: "ale")).isEmpty) // not inside a word
+    }
+
+    @Test func bareWordShownInAnImageBecomesATextFilter() {
+        var snapshot = IndexSnapshot(dimension: 0)
+        for text in ["ellesse", "Billabong surf", ""] {
+            snapshot.upsert(ImageFeatures(id: UUID(), recognizedText: ImageFeatures.foldForSearch(text)))
+        }
+        #expect(FilterEngine.shouldPromoteToTextQuery("ellesse", in: snapshot))
+        #expect(FilterEngine.shouldPromoteToTextQuery("Billabong", in: snapshot))
+        #expect(!FilterEngine.shouldPromoteToTextQuery("bong", in: snapshot))
+        #expect(!FilterEngine.shouldPromoteToTextQuery("man drinking wine", in: snapshot))
+        #expect(!FilterEngine.shouldPromoteToTextQuery("ellesse billabong surf shop", in: snapshot)) // too long
     }
 
     @Test func backgroundColourUsesTheBackgroundShares() {

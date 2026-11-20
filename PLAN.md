@@ -300,7 +300,7 @@ The `LanguageModelSession` gets short instructions plus about 6 few-shot example
 - **Colour region** (analysis v3): a colour filter can target the background ("on a white background") and uses the background shares; images without a saliency map fall back to the whole image.
 - **Looks** (measured, `LookFilter`): bright (L ≥ 0.68), dark (L ≤ 0.35), high contrast (SD ≥ 0.27), low contrast (≤ 0.13), vivid (chroma ≥ 0.085), muted (≤ 0.035), warm (≥ 0.035), cool (≤ −0.004), black & white. Thresholds are tuned on the 993-image library; opposites cancel (the later one wins).
 - **Styles** (`StyleTag`, judged by SigLIP against a fixed prompt): golden hour, overcast, studio light, film grain, minimal, aerial, macro, night. An image passes when the calibrated match (§5.3, relative to the library) is ≥ 0.5.
-- **Text in the image:** every word of `textQuery` must appear in the recognised text (case and diacritics folded). The parser takes quoted text, "saying X", "that says X", "the word X".
+- **Text in the image:** every word of `textQuery` must start a word of the recognised text (case and diacritics folded; "cafe" finds "Cafés", "art" doesn't find "start"). The parser takes quoted text, "saying X", "that says X", "the word X". A bare free text of up to 3 words that some available image shows ("ellesse") also becomes `textQuery`, so it filters instead of only ranking; the ranking still reads the whole sentence.
 - **Screenshots & documents:** Vision's `isUtility`. **Best shots:** aesthetics ≥ 0.3.
 
 Filters combine with AND. The scope comes from the sidebar (All images / Recently added / a folder) and is applied first.

@@ -104,15 +104,39 @@ public enum FilterEngine {
         for l in f.looks where !l.matches(row.look) { return false }
         if let u = f.utility, !u.matches(row.isScreenshotOrDocument) { return false }
         if f.bestShots, (row.aesthetics ?? -1) < bestShotThreshold { return false }
-        if let q = f.textQuery {
-            let words = ImageFeatures.foldForSearch(q).split(whereSeparator: { !$0.isLetter && !$0.isNumber })
-            if words.isEmpty || !words.allSatisfy({ row.recognizedText.contains($0) }) { return false }
-        }
+        if let q = f.textQuery, !textMatches(q, in: row.recognizedText) { return false }
         if let people = f.people, !people.matches(count: row.personCount) { return false }
         if let faces = f.faces, !faces.matches(row.faceCount > 0) { return false }
         if let text = f.text, !text.matches(row.hasText) { return false }
         if let o = f.orientation, row.orientation != o { return false }
         for label in hardLabels where !row.labels.contains(label) { return false }
         return true
+    }
+
+    // MARK: - Text in the image
+
+    private static func words(_ s: String) -> [Substring] {
+        s.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+    }
+
+    /// Every word of `query` starts a word of `recognizedText` (already folded): "cafe" finds "Cafés",
+    /// "art" doesn't find "start".
+    public static func textMatches(_ query: String, in recognizedText: String) -> Bool {
+        let wanted = words(ImageFeatures.foldForSearch(query))
+        guard !wanted.isEmpty else { return false }
+        let present = words(recognizedText)
+        return wanted.allSatisfy { w in present.contains { $0.hasPrefix(w) } }
+    }
+
+    /// Longest free text that's still read as words to find in images ("ellesse", "open late").
+    public static let maxPromotedWords = 3
+
+    /// Free text that names text in the image rather than a scene: a short phrase that some image
+    /// in the library actually shows. The search box then filters on it like "the word …" would,
+    /// instead of only ranking every image.
+    public static func shouldPromoteToTextQuery(_ freeText: String, in snapshot: IndexSnapshot) -> Bool {
+        let count = words(freeText).count
+        guard count > 0, count <= maxPromotedWords else { return false }
+        return snapshot.rows.contains { $0.available && textMatches(freeText, in: $0.recognizedText) }
     }
 }
