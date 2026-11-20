@@ -165,7 +165,7 @@ struct InkButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.manrope(15, .bold))
+                .font(.sans(15, .semibold))
                 .foregroundStyle(Theme.onInk)
                 .padding(.horizontal, 20)
                 .frame(height: 44)

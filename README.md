@@ -30,4 +30,4 @@ xcodebuild -scheme Teinte test           # Core ML parity, Vision pipeline, Foun
 ## Licences
 
 - SigLIP base patch16-224 by Google: Apache 2.0.
-- Manrope and JetBrains Mono (from Phase 2): SIL Open Font License.
+- Geist and Geist Mono (from Phase 2): SIL Open Font License.

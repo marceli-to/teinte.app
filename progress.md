@@ -40,6 +40,15 @@ Your Phase 1 feedback: it works well. The analysis needs refinement, but the des
 - Search bar border: a 1 pt ink hairline at 16%, 26% on hover, and 1.5 pt at 38% when focused (was 1.5 pt solid ink).
 - The search header (search bar + chips) is translucent: the results scroll under it and are blurred (thin material + 62% ground). New `*-scrolled.png` screenshots are in `design/review/`. The offscreen renderer doesn't draw the blur, so check it in the app.
 
+### Step 1c — Geist and the lighter type ✅ (2026-11-20)
+
+- Manrope and JetBrains Mono are replaced by Geist (500–800) and Geist Mono (400–600). Both are OFL, from Google Fonts, cut to static weights. Sizes are unchanged. `Font.manrope` is now `Font.sans`.
+- Screenshots are in `design/review/geist/`. The Manrope ones are still in `design/review/` for comparison.
+- Lighter set: body text 400, chips/search/list filenames 500, title/headings 600, big numbers 300 (Light), "of 993" 400. Mono 400/500. Bundled cuts: Geist 300/400/500/600, Geist Mono 400/500. Screenshots are in `design/review/geist-light/`.
+- Smaller: sidebar items 13 pt (rows 32 pt, counts mono 11), "of N images" 14 pt, header hint ("newest first" / "sorted by …") mono 11.
+- List rows: filename 13 pt, seen-in-it 13 pt, mono figures 12, swatches 18 pt, thumbs 56×42, rows 60 pt. Search bar: 46 pt tall, 12 pt radius, text 16, placeholder 14, centred in the header with equal top/bottom padding.
+- Geist and Geist Mono are kept. PLAN.md and the README are updated.
+
 **Your turn:** look at the app (or `design/review/`) and tell me what to change. Then: analysis refinement (match %, labels), followed by FSEvents watching + launch reconcile and drag-to-reorder looks.
 
 ## Phase 3 — Mac polish

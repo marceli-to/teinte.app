@@ -56,7 +56,7 @@ struct Sidebar: View {
             HStack {
                 Text(title).font(.sidebarItem).foregroundStyle(Theme.ink)
                 Spacer(minLength: 8)
-                Text(count.grouped).font(.mono(12, .semibold)).foregroundStyle(Theme.muted)
+                Text(count.grouped).font(.mono(11)).foregroundStyle(Theme.muted)
             }
         }
         .buttonStyle(SidebarRowStyle(selected: model.selection == item))
@@ -79,7 +79,7 @@ struct Sidebar: View {
                         .onKeyPress(.escape) { renaming = nil; return .handled }
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 38)
+                .frame(height: 32)
                 .background(Theme.field, in: RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent, lineWidth: 1.5))
                 .onAppear { renameFocused = true }
@@ -171,7 +171,7 @@ struct SidebarRowStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .padding(.horizontal, 12)
-                .frame(height: 38)
+                .frame(height: 32)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
                     RoundedRectangle(cornerRadius: 8)

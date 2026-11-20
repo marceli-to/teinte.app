@@ -37,24 +37,25 @@ enum Theme {
 // MARK: - Type
 
 extension Font {
-    enum ManropeWeight: String { case medium = "Medium", semibold = "SemiBold", bold = "Bold", extraBold = "ExtraBold" }
-    enum MonoWeight: String { case regular = "Regular", medium = "Medium", semibold = "SemiBold" }
+    /// Geist and Geist Mono (OFL), bundled as static cuts of the variable fonts.
+    enum SansWeight: String { case light = "Light", regular = "Regular", medium = "Medium", semibold = "SemiBold" }
+    enum MonoWeight: String { case regular = "Regular", medium = "Medium" }
 
-    static func manrope(_ size: CGFloat, _ weight: ManropeWeight = .medium) -> Font {
-        .custom("Manrope-\(weight.rawValue)", fixedSize: size)
+    static func sans(_ size: CGFloat, _ weight: SansWeight = .regular) -> Font {
+        .custom("Geist-\(weight.rawValue)", fixedSize: size)
     }
 
     static func mono(_ size: CGFloat, _ weight: MonoWeight = .regular) -> Font {
-        .custom("JetBrainsMono-\(weight.rawValue)", fixedSize: size)
+        .custom("GeistMono-\(weight.rawValue)", fixedSize: size)
     }
 
-    /// The big numbers: "24", "812".
-    static func display(_ size: CGFloat) -> Font { manrope(size, .extraBold) }
-    static let title = manrope(17, .bold)
-    static let body = manrope(15, .medium)
-    static let bodyStrong = manrope(15, .semibold)
-    static let sidebarItem = manrope(15, .medium)
-    static let monoLabel = mono(11, .medium)
+    /// The big numbers: "24", "812". Light, so they read large but airy.
+    static func display(_ size: CGFloat) -> Font { sans(size, .light) }
+    static let title = sans(17, .semibold)
+    static let body = sans(15, .regular)
+    static let bodyStrong = sans(15, .medium)
+    static let sidebarItem = sans(13, .regular)
+    static let monoLabel = mono(11, .regular)
     static let monoSmall = mono(12)
 }
 

@@ -41,8 +41,7 @@ struct ResultsView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 32)
-        .padding(.bottom, 22)
+        .padding(.vertical, 24)
         .padding(.horizontal, horizontalPadding)
         .animation(.easeOut(duration: 0.18), value: model.parsed != nil || model.hasSearch)
         .background { HeaderBackdrop() }
@@ -73,11 +72,11 @@ struct ResultsHeader: View {
                 .contentTransition(.numericText())
                 .animation(.easeOut(duration: 0.2), value: model.hits.count)
             Text("of \(model.scopeTotal.grouped) images")
-                .font(.manrope(17, .medium))
+                .font(.sans(14, .regular))
                 .foregroundStyle(Theme.muted)
             Spacer(minLength: 16)
             Text(hint)
-                .font(.mono(13))
+                .font(.mono(11))
                 .foregroundStyle(Theme.muted)
                 .lineLimit(1)
         }
@@ -110,7 +109,7 @@ struct EmptyResults: View {
     var body: some View {
         VStack(spacing: 8) {
             Text(model.scopeTotal == 0 ? "No images here yet." : "Nothing matches.")
-                .font(.manrope(20, .bold))
+                .font(.sans(20, .semibold))
                 .foregroundStyle(Theme.ink)
             if model.scopeTotal > 0 {
                 Text(model.active.chips.isEmpty ? "Try describing it differently." : "Try removing a filter.")
@@ -293,10 +292,10 @@ private struct ListRow: View {
         HStack(spacing: 0) {
             HStack(spacing: 16) {
                 Thumbnail(id: hit.id, aspect: f.aspect, contentMode: .fill)
-                    .frame(width: 64, height: 48)
+                    .frame(width: 56, height: 42)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 Text(f.fileName)
-                    .font(.manrope(16, .semibold))
+                    .font(.sans(13, .medium))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -306,25 +305,25 @@ private struct ListRow: View {
             HStack(spacing: 14) {
                 HStack(spacing: 2) {
                     ForEach(Array(f.palette.prefix(3).enumerated()), id: \.offset) { _, entry in
-                        SwatchDot(oklab: entry.colour, size: 21)
+                        SwatchDot(oklab: entry.colour, size: 18)
                     }
                 }
-                .frame(width: 67, alignment: .leading)
+                .frame(width: 58, alignment: .leading)
                 Text(colourShare)
-                    .font(.mono(13))
+                    .font(.mono(12))
                     .foregroundStyle(Theme.muted)
             }
             .frame(width: columns.colours, alignment: .leading)
 
             Text(f.seenInIt)
-                .font(.manrope(16, .medium))
+                .font(.sans(13, .regular))
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
                 .padding(.trailing, 16)
                 .frame(width: columns.seen, alignment: .leading)
 
             Text(verbatim: "\(f.pixelWidth) × \(f.pixelHeight)")
-                .font(.mono(13))
+                .font(.mono(12))
                 .foregroundStyle(Theme.muted)
                 .frame(width: columns.size, alignment: .leading)
 
@@ -334,13 +333,13 @@ private struct ListRow: View {
                     MatchBar(value: CGFloat(m)).frame(width: 56)
                 }
                 Text(hit.matchText)
-                    .font(.mono(13, .semibold))
+                    .font(.mono(12, .medium))
                     .foregroundStyle(Theme.ink)
                     .frame(width: 40, alignment: .trailing)
             }
             .frame(maxWidth: .infinity)
         }
-        .frame(height: 72)
+        .frame(height: 60)
         .background(Theme.selection.opacity(hovering ? 0.6 : 0))
         .contentShape(Rectangle())
         .onHover { hovering = $0 }

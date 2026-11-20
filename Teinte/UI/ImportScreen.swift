@@ -41,7 +41,7 @@ struct ImportScreen: View {
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
             Text("Add a folder. Teinte notes colours, people, objects and scenes once, so every search after that is instant.")
-                .font(.manrope(18, .medium))
+                .font(.sans(18, .regular))
                 .foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
@@ -63,7 +63,7 @@ struct ImportScreen: View {
                     .contentTransition(.numericText())
                     .animation(.easeOut(duration: 0.25), value: p.done)
                 Text("of \(p.total.grouped)")
-                    .font(.manrope(24, .bold))
+                    .font(.sans(24, .regular))
                     .foregroundStyle(Theme.muted)
             }
             .padding(.top, 10)
@@ -71,7 +71,7 @@ struct ImportScreen: View {
             .accessibilityLabel("\(p.done) of \(p.total) images analysed")
 
             Text("Teinte notes colours, people, objects and scenes once, so every search after this is instant.")
-                .font(.manrope(18, .medium))
+                .font(.sans(18, .regular))
                 .foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
@@ -168,8 +168,8 @@ struct DropZone: View {
     var body: some View {
         HStack(spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.manrope(19, .bold)).foregroundStyle(Theme.ink)
-                Text("Your images never leave this Mac.").font(.manrope(16, .medium)).foregroundStyle(Theme.muted)
+                Text(title).font(.sans(19, .semibold)).foregroundStyle(Theme.ink)
+                Text("Your images never leave this Mac.").font(.sans(16, .regular)).foregroundStyle(Theme.muted)
             }
             Spacer(minLength: 0)
             Button("Choose folder…") { model.chooseFolder() }

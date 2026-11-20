@@ -1,7 +1,7 @@
 import SwiftUI
 import TeinteCore
 
-/// The hero search field: soft field tone, 14 pt radius, a quiet ink hairline (stronger on hover/focus), 56 pt tall. ⌘K focuses it, Esc clears it.
+/// The hero search field: soft field tone, 12 pt radius, a quiet ink hairline (stronger on hover/focus), 46 pt tall. ⌘K focuses it, Esc clears it.
 struct SearchBar: View {
     @Environment(AppModel.self) private var model
     @FocusState private var focused: Bool
@@ -9,9 +9,9 @@ struct SearchBar: View {
 
     var body: some View {
         @Bindable var model = model
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(Theme.ink)
                 .accessibilityHidden(true)
             // Own placeholder: the field's prompt can't be smaller than the typed text.
@@ -19,14 +19,14 @@ struct SearchBar: View {
                 .background(alignment: .leading) {
                     if model.queryText.isEmpty {
                         Text("Describe what you’re looking for")
-                            .font(.manrope(16, .medium))
+                            .font(.sans(14, .regular))
                             .foregroundStyle(Theme.muted.opacity(0.75))
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
                 }
                 .textFieldStyle(.plain)
-                .font(.manrope(20, .semibold))
+                .font(.sans(16, .medium))
                 .foregroundStyle(Theme.ink)
                 .focused($focused)
                 .onKeyPress(.escape) {
@@ -39,7 +39,7 @@ struct SearchBar: View {
             if model.hasSearch {
                 Button { model.clearSearch() } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.system(size: 14))
                         .foregroundStyle(Theme.muted.opacity(0.7))
                 }
                 .buttonStyle(PressScaleStyle())
@@ -48,14 +48,14 @@ struct SearchBar: View {
             }
             KeyHint(text: "⌘K")
         }
-        .padding(.horizontal, 20)
-        .frame(height: 56)
-        .background(Theme.field, in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 16)
+        .frame(height: 46)
+        .background(Theme.field, in: RoundedRectangle(cornerRadius: 12))
         .overlay {
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(Theme.ink.opacity(focused ? 0.38 : hovering ? 0.26 : 0.16), lineWidth: focused ? 1.5 : 1)
         }
-        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .contentShape(RoundedRectangle(cornerRadius: 12))
         .onTapGesture { focused = true }
         .onHover { hovering = $0 }
         .onAppear { focused = true }
@@ -68,10 +68,10 @@ struct KeyHint: View {
 
     var body: some View {
         Text(text)
-            .font(.mono(11, .medium))
+            .font(.mono(11, .regular))
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 7)
-            .frame(height: 24)
+            .frame(height: 22)
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.line, lineWidth: 1))
             .accessibilityHidden(true)
     }

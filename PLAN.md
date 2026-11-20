@@ -321,16 +321,16 @@ This parser is deterministic. It's used when Foundation Models is unavailable, a
 
 - **Window:** `WindowGroup` with `.windowStyle(.hiddenTitleBar)` plus a custom title area. "Teinte" sits next to the traffic lights and the grid/list segmented toggle on the right. On macOS 26 that means the toolbar is transparent (`.toolbarBackgroundVisibility(.hidden)`, with the toolbar items' glass background removed). Minimum size is 900×600.
 - **Sidebar:** `NavigationSplitView`, with uppercase mono section labels: LIBRARY (All images, Recently added, with counts), SAVED LOOKS (a dot shows the selected look, accent filled), FOLDERS (unavailable folders are dimmed). The selection drives the scope.
-- **Search bar:** a custom control, white, 14 pt radius, 1.5 pt ink border, 56 pt tall, with a search glyph and a ⌘K key hint. ⌘K focuses it from anywhere, Esc clears it.
+- **Search bar:** a custom control in a translucent, blurred header, soft field tone (#F4F5F0), 12 pt radius, 1 pt ink hairline at 16%, 46 pt tall, with a search glyph and a ⌘K key hint. ⌘K focuses it from anywhere, Esc clears it.
 - **Chips row:** "understood as" in mono, then white pill chips. Colour chips have a swatch dot with a hairline ring on light swatches. People chips have a person glyph. Each chip has a × button, which is keyboard-focusable and has a VoiceOver label like "Remove filter: mostly blue". "Save as look" is an accent-outlined button on the right.
-- **Header:** the large count ("24") in Manrope 800, then "of 1,240 images" and a mono hint on the right ("sorted by how well they match" / "why each one matched").
+- **Header:** the large count ("24") in Geist Light (300), then "of 1,240 images" and a mono hint on the right ("sorted by how well they match" / "why each one matched").
 - **Grid:** `LazyVGrid` with adaptive columns (min 220 pt). Tiles have 10 pt rounded corners and keep their aspect ratio within the cell. A mono filename and the match % sit underneath.
 - **List:** `Table` with columns Image (thumb plus name), Colours (top 3 swatches plus "71% blue" for the matched bucket, otherwise the top bucket), Seen in it ("2 people · water · jetty"), Size (mono "4032 × 3024"), and Match (thin accent bar plus %).
 - **First import:** a big counter, one sentence, a progress line (solid accent up to a dot, dashed after), mono ETA and folder names, the library-by-colour band (up to 40 swatches, hue-sorted), and a drop zone with "Choose folder…". It's shown when the library is empty or a large import (> 200 pending) is running, and it can be dismissed to browse while analysis continues.
 - **Empty states:**
   - No folders → the drop zone (a variant of the first-import screen).
   - No results → "Nothing matches. Try removing a filter." with the chips still shown above.
-- **Design system:** a `Theme` with light and dark colour tokens, plus Manrope and JetBrains Mono bundled from their official OFL releases and registered through `ATSApplicationFontsPath`. Text styles are defined once (`.display`, `.title`, `.body`, `.monoLabel`, …).
+- **Design system:** a `Theme` with light and dark colour tokens, plus Geist and Geist Mono bundled as static cuts of the official OFL variable fonts (sans 300–600, mono 400–500) and registered through `ATSApplicationFontsPath`. Text styles are defined once (`.display`, `.title`, `.body`, `.monoLabel`, …).
 - **Dark mode:**
   - ground = ink `#1E2621`, surface = a lifted ink (about `#283029`), text = ground `#ECEEE8`, muted = about `#A9B1A9`, lines = about `#3A443D`, accent = `#E07A50`
   - The search bar border and dark swatches get a light hairline ring.
@@ -447,7 +447,7 @@ teinte.app/
 ├─ PLAN.md, prompt.md, design/
 ├─ project.yml                 XcodeGen spec
 ├─ Teinte/                     app target (SwiftUI, platform glue, resources)
-│   ├─ Resources/Fonts/        Manrope, JetBrains Mono (+ OFL.txt)
+│   ├─ Resources/Fonts/        Geist, Geist Mono (+ OFL.txt)
 │   ├─ Resources/Models/       *.mlpackage (gitignored if > 100 MB; fetched by script/fetch-models.sh)
 │   └─ Teinte.entitlements
 ├─ Packages/TeinteCore/        pure logic + tests
