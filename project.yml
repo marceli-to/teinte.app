@@ -42,6 +42,7 @@ targets:
         LSApplicationCategoryType: public.app-category.photography
         LSMinimumSystemVersion: "26.0"
         NSHumanReadableCopyright: "© 2026 Teinte"
+        ATSApplicationFontsPath: "."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.teinte.Teinte

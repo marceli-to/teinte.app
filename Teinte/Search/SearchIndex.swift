@@ -78,3 +78,26 @@ actor SearchIndex {
         snapshot.row(for: id).flatMap { snapshot.rows[$0].embedding }
     }
 }
+
+extension SearchIndex {
+    struct Stats: Sendable, Equatable {
+        var total = 0
+        var recent = 0
+        var perFolder: [UUID: Int] = [:]
+        var band: [OKLab] = []
+    }
+
+    /// Sidebar counts and the colour band. Only available images count.
+    func stats(recentSince: Date) -> Stats {
+        var s = Stats()
+        var palettes: [[PaletteEntry]] = []
+        for row in snapshot.rows where row.available {
+            s.total += 1
+            if row.addedAt >= recentSince { s.recent += 1 }
+            s.perFolder[row.folderID, default: 0] += 1
+            palettes.append(row.palette)
+        }
+        s.band = ColourBand.swatches(from: palettes)
+        return s
+    }
+}

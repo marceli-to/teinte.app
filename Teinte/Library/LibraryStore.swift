@@ -185,15 +185,8 @@ actor LibraryStore {
         let records = try modelContext.fetch(FetchDescriptor<ImageRecord>(predicate: #Predicate { ids.contains($0.id) }))
         var out: [UUID: Details] = [:]
         for r in records {
-            var palette: [PaletteEntry] = []
-            var i = 0
-            while i + 3 < r.palette.count {
-                let c = OKLab(l: r.palette[i], a: r.palette[i + 1], b: r.palette[i + 2])
-                palette.append(PaletteEntry(colour: c, share: r.palette[i + 3], bucket: ColourBucketMapper.bucket(for: c)))
-                i += 4
-            }
             out[r.id] = Details(
-                relativePath: r.relativePath, folderID: r.folderID, palette: palette,
+                relativePath: r.relativePath, folderID: r.folderID, palette: r.paletteEntries,
                 labels: Array(zip(r.labels, r.labelConfidences)), failureReason: r.failureReason)
         }
         return out
@@ -217,5 +210,60 @@ actor LibraryStore {
         var d = FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.statusRaw == done })
         d.propertiesToFetch = [\.labels]
         return Set(try modelContext.fetch(d).flatMap(\.labels))
+    }
+
+    // MARK: Saved looks
+
+    func looks() throws -> [LookInfo] {
+        try modelContext.fetch(FetchDescriptor<SavedLook>(sortBy: [SortDescriptor(\.sortIndex), SortDescriptor(\.createdAt)]))
+            .map(LookInfo.init)
+    }
+
+    func addLook(name: String, query: String, filters: QueryFilters, chipsEdited: Bool) throws -> LookInfo {
+        let next = (try modelContext.fetch(FetchDescriptor<SavedLook>()).map(\.sortIndex).max() ?? -1) + 1
+        let look = SavedLook(name: name, query: query, filtersJSON: try JSONEncoder().encode(filters),
+                             chipsEdited: chipsEdited, sortIndex: next)
+        modelContext.insert(look)
+        try modelContext.save()
+        return LookInfo(look)
+    }
+
+    func renameLook(_ id: UUID, to name: String) throws {
+        guard let look = try look(id) else { return }
+        look.name = name
+        try modelContext.save()
+    }
+
+    func deleteLook(_ id: UUID) throws {
+        guard let look = try look(id) else { return }
+        modelContext.delete(look)
+        try modelContext.save()
+    }
+
+    /// Persist a new order (IDs in display order).
+    func reorderLooks(_ ids: [UUID]) throws {
+        let all = try modelContext.fetch(FetchDescriptor<SavedLook>())
+        for look in all { look.sortIndex = ids.firstIndex(of: look.id) ?? ids.count }
+        try modelContext.save()
+    }
+
+    private func look(_ id: UUID) throws -> SavedLook? {
+        try modelContext.fetch(FetchDescriptor<SavedLook>(predicate: #Predicate { $0.id == id })).first
+    }
+}
+
+struct LookInfo: Sendable, Identifiable, Hashable {
+    var id: UUID
+    var name: String
+    var query: String
+    var filters: QueryFilters
+    var chipsEdited: Bool
+
+    init(_ look: SavedLook) {
+        id = look.id
+        name = look.name
+        query = look.query
+        filters = (try? JSONDecoder().decode(QueryFilters.self, from: look.filtersJSON)) ?? .empty
+        chipsEdited = look.chipsEdited
     }
 }

@@ -15,6 +15,8 @@ public struct ImageFeatures: Hashable, Sendable {
     public var hasText: Bool
     /// Vision identifiers (lowercased), including parent labels of the taxonomy.
     public var labels: [String]
+    /// Dominant colours, largest first.
+    public var palette: [PaletteEntry]
     /// L2-normalised embedding, or nil if not computed yet.
     public var embedding: [Float]?
     public var available: Bool
@@ -24,12 +26,12 @@ public struct ImageFeatures: Hashable, Sendable {
         pixelWidth: Int = 1, pixelHeight: Int = 1,
         bucketShares: [Float] = ColourProfile.empty.bucketShares,
         personCount: Int = 0, faceCount: Int = 0, hasText: Bool = false, labels: [String] = [],
-        embedding: [Float]? = nil, available: Bool = true
+        palette: [PaletteEntry] = [], embedding: [Float]? = nil, available: Bool = true
     ) {
         self.id = id; self.folderID = folderID; self.fileName = fileName; self.addedAt = addedAt
         self.pixelWidth = pixelWidth; self.pixelHeight = pixelHeight; self.bucketShares = bucketShares
         self.personCount = personCount; self.faceCount = faceCount; self.hasText = hasText
-        self.labels = labels; self.embedding = embedding; self.available = available
+        self.labels = labels; self.palette = palette; self.embedding = embedding; self.available = available
     }
 
     public var orientation: Orientation { Orientation(width: pixelWidth, height: pixelHeight) }

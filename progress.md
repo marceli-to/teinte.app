@@ -14,6 +14,33 @@ Short status log. Details live in `PLAN.md` (spec) and git history (changes).
 
 **Your turn:** run the app, add a folder of your own images, and try «blue images with people». Turn the Debug checkbox on to see why each image matched.
 
-## Phase 2 — The real app ⏳ waiting for your feedback on Phase 1
+## Phase 2 — The real app ⏳ in progress
+
+Your Phase 1 feedback: it works well. The analysis needs refinement, but the design comes first.
+
+### Step 1 — Design ✅ (2026-11-20)
+
+- Design system: `Theme` (light and dark tokens), Manrope (500–800, static cuts from the OFL variable font) and JetBrains Mono bundled under `Resources/Fonts`, with both OFL texts.
+- Window: transparent title bar with "Teinte" and the grid/list toggle, a line under it, and the sidebar you can hide (⌃⌘S).
+- Sidebar: LIBRARY (All images, Recently added = last 7 days, with counts), SAVED LOOKS, FOLDERS (unavailable folders dimmed, right-click for Show in Finder / Remove), and "Add folder…".
+- Search bar per spec (⌘K focuses it, Esc clears it), the "understood as" chips (remove → re-query), and "Save as look" (⌘S) with a name prompt.
+- Saved looks are stored in SwiftData with the exact filters. Selecting one restores them without re-parsing. Right-click to rename, move up/down or delete.
+- Grid (4:3 tiles, mono filename + %) and list (Image, Colours with the top 3 swatches + share of the matched colour, Seen in it, Size, Match bar). Empty states.
+- Import screen: big counter, progress line, ETA, folder names, library-by-colour band, drop zone. Shown with no folders, during the first import, and during large imports (> 200 left), with "Browse while it works".
+- The Phase 1 debug info is now under View › Show Analysis Details (⌥⌘D).
+- Screenshots (light and dark) in `design/review/`. They come from a debug-only in-app renderer (`TEINTE_SNAPSHOT=1`), because the shell has no screen-recording permission. That renderer draws pill ends slightly flat ("Save as look", "Choose folder…"); the real window should be fine, so please check it.
+- Deviations from the mockups:
+  - Grid tiles crop to fill a 4:3 cell, as in the mockup, instead of letterboxing. Letterboxing left big uneven gaps with real photos.
+  - The list is a custom view, not `Table`, so it can match the mockup's type and spacing.
+- Known: the match % shows 0% for most results. That's the SigLIP calibration, part of the analysis refinement.
+
+### Step 1b — Design feedback ✅ (2026-11-20)
+
+- No more glaring white: the search bar, chips and toggle use a soft `field` tone (#F4F5F0). Selected and hovered rows use a light ink tint (`selection`, ink at 7.5%), darker than the ground.
+- Search bar border: a 1 pt ink hairline at 16%, 26% on hover, and 1.5 pt at 38% when focused (was 1.5 pt solid ink).
+- The search header (search bar + chips) is translucent: the results scroll under it and are blurred (thin material + 62% ground). New `*-scrolled.png` screenshots are in `design/review/`. The offscreen renderer doesn't draw the blur, so check it in the app.
+
+**Your turn:** look at the app (or `design/review/`) and tell me what to change. Then: analysis refinement (match %, labels), followed by FSEvents watching + launch reconcile and drag-to-reorder looks.
+
 ## Phase 3 — Mac polish
 ## Phase 4 — Release prep

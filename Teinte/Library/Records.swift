@@ -28,6 +28,30 @@ enum AnalysisStatus: String, Codable {
 }
 
 @Model
+final class SavedLook {
+    @Attribute(.unique) var id: UUID
+    var name: String
+    /// The sentence as typed.
+    var query: String
+    /// The filters after chip removals, so a look restores exactly without re-parsing.
+    var filtersJSON: Data
+    /// True if chips were removed; then the whole sentence isn't used as ranking text.
+    var chipsEdited: Bool = false
+    var createdAt: Date
+    var sortIndex: Int
+
+    init(name: String, query: String, filtersJSON: Data, chipsEdited: Bool, sortIndex: Int) {
+        self.id = UUID()
+        self.name = name
+        self.query = query
+        self.filtersJSON = filtersJSON
+        self.chipsEdited = chipsEdited
+        self.createdAt = .now
+        self.sortIndex = sortIndex
+    }
+}
+
+@Model
 final class ImageRecord {
     @Attribute(.unique) var id: UUID
     var folder: WatchedFolder?
@@ -77,6 +101,13 @@ final class ImageRecord {
             pixelWidth: pixelWidth, pixelHeight: pixelHeight,
             bucketShares: bucketShares.count == ColourBucket.allCases.count ? bucketShares : ColourProfile.empty.bucketShares,
             personCount: personCount, faceCount: faceCount, hasText: hasText, labels: labels,
-            embedding: embedding, available: available)
+            palette: paletteEntries, embedding: embedding, available: available)
+    }
+
+    var paletteEntries: [PaletteEntry] {
+        stride(from: 0, to: palette.count - 3, by: 4).map { i in
+            let c = OKLab(l: palette[i], a: palette[i + 1], b: palette[i + 2])
+            return PaletteEntry(colour: c, share: palette[i + 3], bucket: ColourBucketMapper.bucket(for: c))
+        }
     }
 }

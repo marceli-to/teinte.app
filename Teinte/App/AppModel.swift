@@ -4,7 +4,12 @@ import Observation
 import SwiftData
 import TeinteCore
 
-/// App state for the Phase 1 prototype. Everything heavy happens in actors; this only holds results.
+/// What the sidebar has selected. It sets the search scope, or restores a saved look.
+enum SidebarItem: Hashable {
+    case all, recent, look(UUID), folder(UUID)
+}
+
+/// App state. Everything heavy happens in actors; this only holds results.
 @MainActor
 @Observable
 final class AppModel {
@@ -38,8 +43,26 @@ final class AppModel {
     var total = 0
     var parseMilliseconds: Double = 0
     var searchMilliseconds: Double = 0
-    var showDebug = true
+    var showDebug = false
     var scope: SearchScope = .all
+
+    // Chrome
+    var selection: SidebarItem = .all
+    var viewMode: ViewMode = .grid
+    var sidebarVisible = true
+    var looks: [LookInfo] = []
+    var stats = SearchIndex.Stats()
+    /// The user chose to browse while a large import runs.
+    var importDismissed = false
+    /// Bumped to move keyboard focus to the search bar (⌘K).
+    var focusSearchToken = 0
+    /// Debug snapshots of the import screen.
+    var forceImportScreen = false
+    /// Bumped to open the "Save as look" form (⌘S).
+    var saveLookRequest = 0
+
+    /// Images added in the last 7 days count as "Recently added".
+    static let recentWindow: TimeInterval = 7 * 24 * 3600
 
     // Services
     let thumbnails = ThumbnailCache()
@@ -62,7 +85,8 @@ final class AppModel {
         let support = Self.supportDirectory
         let config = ModelConfiguration(url: support.appendingPathComponent("Library.store"))
         do {
-            container = try ModelContainer(for: WatchedFolder.self, ImageRecord.self, configurations: config)
+            container = try ModelContainer(for: WatchedFolder.self, ImageRecord.self, SavedLook.self,
+                                           configurations: config)
         } catch {
             fatalError("Couldn't open the library database: \(error)")
         }
@@ -131,6 +155,7 @@ final class AppModel {
         taxonomy = await Task.detached { VisionAnalyzer.taxonomy() }.value
         await refreshVocabulary()
         await refreshFolders()
+        await refreshLooks()
         runSearch()
 
         // Catch changes made while the app was closed, then analyse what's pending.
@@ -156,6 +181,24 @@ final class AppModel {
             progress.done = counts.done
             progress.total = counts.total
         }
+        await refreshStats()
+    }
+
+    private func refreshStats() async {
+        guard let index else { return }
+        stats = await index.stats(recentSince: Date(timeIntervalSinceNow: -Self.recentWindow))
+    }
+
+    // MARK: - Import screen
+
+    /// The big "looking at your images" screen: when there are no folders, while the first import runs,
+    /// and while a large import (> 200 images to go) runs, unless dismissed.
+    var showsImportScreen: Bool {
+        if folders.isEmpty || forceImportScreen { return true }
+        let remaining = progress.total - progress.done
+        guard progress.isRunning || remaining > 0 else { return false }
+        if stats.total == 0 { return true }
+        return remaining > 200 && !importDismissed
     }
 
     private func batchFinished() {
@@ -194,6 +237,7 @@ final class AppModel {
         do {
             let bookmark = try FolderBookmark.create(for: url)
             let info = try await store.addFolder(displayName: url.lastPathComponent, bookmark: bookmark, path: url.path)
+            importDismissed = false
             access.register(info.id, url: url)
             await refreshFolders()
             await rescan(info.id)
@@ -208,6 +252,7 @@ final class AppModel {
         await index.remove(removed)
         removed.forEach(thumbnails.remove)
         access.close(id)
+        if selection == .folder(id) { select(.all) }
         await refreshFolders()
         runSearch()
     }
@@ -232,6 +277,17 @@ final class AppModel {
     }
 
     // MARK: - Search
+
+    /// The search bar's text. Setting it from the UI re-parses; looks set `query` directly.
+    var queryText: String {
+        get { query }
+        set {
+            guard newValue != query else { return }
+            query = newValue
+            if case .look = selection { selection = .all; scope = .all }
+            queryChanged()
+        }
+    }
 
     /// Called on every keystroke. Debounced; cancels a parse in flight.
     func queryChanged() {
@@ -275,7 +331,116 @@ final class AppModel {
     func remove(_ chip: FilterChip) {
         active = active.removing(chip)
         chipsEdited = true
+        if case .look = selection { selection = .all; scope = .all }
         runSearch()
+    }
+
+    func clearSearch() {
+        parseTask?.cancel()
+        query = ""
+        parsed = nil
+        active = .empty
+        chipsEdited = false
+        if case .look = selection { selection = .all; scope = .all }
+        runSearch()
+    }
+
+    /// "of 1,240 images": the size of the current scope.
+    var scopeTotal: Int {
+        switch selection {
+        case .all, .look: stats.total
+        case .recent: stats.recent
+        case .folder(let id): stats.perFolder[id] ?? 0
+        }
+    }
+
+    var hasSearch: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty || !active.isEmpty }
+
+    /// Parser and ranking details, shown when View › Show Analysis Details is on.
+    var debugLine: String? {
+        guard showDebug else { return nil }
+        var lines = ["parser: \(parserUsed.isEmpty ? parserStatus : parserUsed)"
+            + (parsed != nil ? String(format: " · %.0f ms", parseMilliseconds) : "")]
+        if let rules = ruleParse, parserUsed != "rules" {
+            lines.append("rules would say: \(rules.summary.isEmpty ? "—" : rules.summary)")
+        }
+        if !hardLabels.isEmpty { lines.append("label filters: \(hardLabels.joined(separator: ", "))") }
+        lines.append("ranking text: \(rankingText ?? "—")")
+        lines.append("embeddings: \(embedderStatus)" + String(format: " · filter + rank %.1f ms", searchMilliseconds))
+        if let parseError { lines.append(parseError) }
+        return lines.joined(separator: "\n")
+    }
+
+    // MARK: - Sidebar
+
+    func select(_ item: SidebarItem) {
+        selection = item
+        switch item {
+        case .all: scope = .all
+        case .recent: scope = .addedSince(Date(timeIntervalSinceNow: -Self.recentWindow))
+        case .folder(let id): scope = .folder(id)
+        case .look(let id):
+            guard let look = looks.first(where: { $0.id == id }) else { return }
+            parseTask?.cancel()
+            scope = .all
+            query = look.query
+            parsed = look.filters
+            active = look.filters
+            chipsEdited = look.chipsEdited
+            parserUsed = "saved look"
+        }
+        runSearch()
+    }
+
+    // MARK: - Saved looks
+
+    /// A default name from the chips: "Mostly blue, with people".
+    var suggestedLookName: String {
+        let text = active.chips.map(\.title).joined(separator: ", ")
+        let base = text.isEmpty ? query : text
+        return base.prefix(1).uppercased() + base.dropFirst()
+    }
+
+    var canSaveLook: Bool { !active.isEmpty || !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    func saveLook(named name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canSaveLook else { return }
+        do {
+            let look = try await store.addLook(name: trimmed.isEmpty ? suggestedLookName : trimmed,
+                                               query: query, filters: active, chipsEdited: chipsEdited)
+            await refreshLooks()
+            selection = .look(look.id)
+        } catch {
+            message = "Couldn't save the look: \(error.localizedDescription)"
+        }
+    }
+
+    func renameLook(_ id: UUID, to name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        try? await store.renameLook(id, to: trimmed)
+        await refreshLooks()
+    }
+
+    func deleteLook(_ id: UUID) async {
+        try? await store.deleteLook(id)
+        if selection == .look(id) { selection = .all }
+        await refreshLooks()
+    }
+
+    func moveLook(_ id: UUID, by offset: Int) async {
+        var ids = looks.map(\.id)
+        guard let i = ids.firstIndex(of: id) else { return }
+        let j = i + offset
+        guard ids.indices.contains(j) else { return }
+        ids.swapAt(i, j)
+        try? await store.reorderLooks(ids)
+        await refreshLooks()
+    }
+
+    private func refreshLooks() async {
+        looks = (try? await store.looks()) ?? []
     }
 
     func runSearch() {
