@@ -11,32 +11,32 @@ public enum LabelNames {
         return LabelResolver.displayName(identifier)
     }
 
-    /// Lowercased German name (ß as ss) → identifier.
+    /// Lowercased German name (names use ss, never ß) → identifier.
     static let germanToIdentifier: [String: String] = {
         var out: [String: String] = [:]
         for (id, name) in german.sorted(by: { $0.key < $1.key }) {
-            let key = name.lowercased().replacingOccurrences(of: "ß", with: "ss")
+            let key = name.lowercased()
             if out[key] == nil { out[key] = id }
         }
         return out
     }()
 
     static let german: [String: String] = [
-        "outdoor": "draußen", "sky": "Himmel", "structure": "Bauwerk", "land": "Land", "liquid": "Flüssigkeit",
+        "outdoor": "draussen", "sky": "Himmel", "structure": "Bauwerk", "land": "Land", "liquid": "Flüssigkeit",
         "cloudy": "bewölkt", "water": "Wasser", "blue_sky": "blauer Himmel", "plant": "Pflanze",
         "water_body": "Gewässer", "people": "Menschen", "grass": "Gras", "rocks": "Felsen", "adult": "Erwachsener",
         "hill": "Hügel", "machine": "Maschine", "wood_processed": "Holz (verarbeitet)", "building": "Gebäude",
         "sunset_sunrise": "Sonnenuntergang", "ocean": "Ozean", "conveyance": "Verkehrsmittel", "material": "Material",
-        "foliage": "Laub", "road": "Straße", "portal": "Tor", "animal": "Tier", "haze": "Dunst",
+        "foliage": "Laub", "road": "Strasse", "portal": "Tor", "animal": "Tier", "haze": "Dunst",
         "night_sky": "Nachthimmel", "frozen": "gefroren", "fence": "Zaun", "forest": "Wald", "vehicle": "Fahrzeug",
         "mountain": "Berg", "vegetation": "Vegetation", "consumer_electronics": "Elektronik",
         "skyscraper": "Hochhaus", "cityscape": "Stadtbild", "path": "Weg", "bridge": "Brücke", "food": "Essen",
         "clothing": "Kleidung", "window": "Fenster", "utensil": "Utensil", "mammal": "Säugetier",
         "recreation": "Freizeit", "lake": "See", "tableware": "Geschirr", "snow": "Schnee",
         "wood_natural": "Holz", "furniture": "Möbel", "computer": "Computer", "daytime": "Tag",
-        "document": "Dokument", "arch": "Bogen", "laptop": "Laptop", "street": "Straße",
+        "document": "Dokument", "arch": "Bogen", "laptop": "Laptop", "street": "Strasse",
         "agriculture": "Landwirtschaft", "art": "Kunst", "evergreen": "Nadelbaum", "branch": "Ast",
-        "railroad": "Eisenbahn", "camera": "Kamera", "road_other": "Straße", "apartment": "Wohnhaus",
+        "railroad": "Eisenbahn", "camera": "Kamera", "road_other": "Strasse", "apartment": "Wohnhaus",
         "automobile": "Auto", "underwater": "Unterwasser", "table": "Tisch", "crowd": "Menschenmenge",
         "track_rail": "Gleis", "textile": "Textil", "pier": "Pier", "brick": "Backstein", "desert": "Wüste",
         "fruit": "Obst", "flower": "Blume", "book": "Buch", "tree": "Baum", "cliff": "Klippe", "sun": "Sonne",
@@ -52,10 +52,10 @@ public enum LabelNames {
         "bird": "Vogel", "dial": "Zifferblatt", "timepiece": "Uhr", "mug": "Becher", "tower": "Turm",
         "typewriter": "Schreibmaschine", "interior_room": "Innenraum", "cactus": "Kaktus",
         "performance": "Auftritt", "coral_reef": "Korallenriff", "coffee": "Kaffee", "pyrotechnics": "Feuerwerk",
-        "seasonings": "Gewürze", "tramway": "Straßenbahn", "jacket": "Jacke", "amusement_park": "Freizeitpark",
+        "seasonings": "Gewürze", "tramway": "Strassenbahn", "jacket": "Jacke", "amusement_park": "Freizeitpark",
         "park": "Park", "rope": "Seil", "wheel": "Rad", "printed_page": "Druckseite", "straw_hay": "Stroh",
         "escalator": "Rolltreppe", "dome": "Kuppel", "feline": "Katze", "bench": "Bank", "vegetable": "Gemüse",
-        "balloon_hotair": "Heißluftballon", "handwriting": "Handschrift", "raspberry": "Himbeere",
+        "balloon_hotair": "Heissluftballon", "handwriting": "Handschrift", "raspberry": "Himbeere",
         "music": "Musik", "musical_instrument": "Musikinstrument", "lighthouse": "Leuchtturm", "lily": "Lilie",
         "bear": "Bär", "airplane": "Flugzeug", "optical_equipment": "Optik", "headgear": "Kopfbedeckung",
         "hat": "Hut", "door": "Tür", "pug": "Mops", "herb": "Kraut", "ferris_wheel": "Riesenrad",
@@ -65,7 +65,7 @@ public enum LabelNames {
         "lightning": "Blitz", "orchid": "Orchidee", "volcano": "Vulkan", "license_plate": "Nummernschild",
         "concert": "Konzert", "computer_keyboard": "Tastatur", "cycling": "Radfahren", "coyote_wolf": "Wolf",
         "sparkler": "Wunderkerze", "decorative_plant": "Zierpflanze", "coffee_bean": "Kaffeebohne",
-        "seed": "Samen", "shore": "Ufer", "maple_tree": "Ahorn", "streetcar": "Straßenbahn", "boat": "Boot",
+        "seed": "Samen", "shore": "Ufer", "maple_tree": "Ahorn", "streetcar": "Strassenbahn", "boat": "Boot",
         "watercraft": "Wasserfahrzeug", "pen": "Stift", "celebration": "Feier", "ceremony": "Zeremonie",
         "wedding": "Hochzeit", "beanie": "Mütze", "gamepad": "Gamepad", "toy": "Spielzeug", "sign": "Schild",
         "fireworks": "Feuerwerk", "flame": "Flamme", "vase": "Vase", "frame": "Rahmen", "statue": "Statue",
@@ -81,7 +81,7 @@ public enum LabelNames {
         "plate": "Teller", "bar": "Bar", "sunglasses": "Sonnenbrille", "axe": "Axt", "hoodie": "Kapuzenpulli",
         "blizzard": "Schneesturm", "strawberry": "Erdbeere", "toad": "Kröte", "pool": "Pool",
         "tachometer": "Drehzahlmesser", "chalkboard": "Tafel", "boot": "Stiefel", "wetland": "Feuchtgebiet",
-        "train_station": "Bahnhof", "arthropods": "Gliederfüßer", "cat": "Katze", "horse": "Pferd",
+        "train_station": "Bahnhof", "arthropods": "Gliederfüsser", "cat": "Katze", "horse": "Pferd",
         "cow": "Kuh", "sheep": "Schaf", "fish": "Fisch", "insect": "Insekt", "butterfly": "Schmetterling",
         "river": "Fluss", "sea": "Meer", "island": "Insel", "harbour": "Hafen", "harbor": "Hafen",
         "church": "Kirche", "castle": "Burg", "garden": "Garten", "kitchen": "Küche", "bread": "Brot",
