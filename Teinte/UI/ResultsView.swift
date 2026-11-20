@@ -103,7 +103,7 @@ struct ResultsHeader: View {
                 .font(.sans(14, .regular))
                 .foregroundStyle(Theme.muted)
             Spacer(minLength: 16)
-            if model.selectedIDs.isEmpty {
+            if model.selectedIDs.isEmpty && model.exportProgress == nil {
                 Text(hint)
                     .font(.mono(11))
                     .foregroundStyle(Theme.muted)
@@ -127,15 +127,23 @@ struct SelectionSummary: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("\(model.selectedIDs.count.grouped) selected")
-                .font(.mono(11))
-                .foregroundStyle(Theme.ink)
-                .contentTransition(.numericText())
-            Button("Deselect") { model.clearSelection() }
-                .buttonStyle(.plain)
-                .font(.mono(11))
-                .foregroundStyle(Theme.muted)
-                .help("Deselect all (Esc)")
+            if let p = model.exportProgress {
+                Text("exporting \(p.done.grouped) of \(p.total.grouped)…")
+                    .font(.mono(11))
+                    .foregroundStyle(Theme.accent)
+                    .contentTransition(.numericText())
+            }
+            if !model.selectedIDs.isEmpty {
+                Text("\(model.selectedIDs.count.grouped) selected")
+                    .font(.mono(11))
+                    .foregroundStyle(Theme.ink)
+                    .contentTransition(.numericText())
+                Button("Deselect") { model.clearSelection() }
+                    .buttonStyle(.plain)
+                    .font(.mono(11))
+                    .foregroundStyle(Theme.muted)
+                    .help("Deselect all (Esc)")
+            }
         }
         .animation(.easeOut(duration: 0.15), value: model.selectedIDs.count)
     }
@@ -273,6 +281,11 @@ private struct ResultInteractions: ViewModifier {
                     if !model.selectedIDs.contains(hit.id) { model.click(hit.id, kind: .plain) }
                     model.copySelection()
                 }
+                Divider()
+                Button("Export to Folder…") { model.export(.folder, ids: targets) }
+                    .disabled(model.exportProgress != nil)
+                Button("Export as Zip…") { model.export(.zip, ids: targets) }
+                    .disabled(model.exportProgress != nil)
             }
     }
 

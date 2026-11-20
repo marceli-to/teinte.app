@@ -260,11 +260,14 @@ private struct ImageDetails: View {
     }
 
     private var actions: some View {
-        HStack(spacing: 10) {
+        FlowLayout(spacing: 10, lineSpacing: 10) {
             Button("Find similar") { model.findSimilar(id) }
                 .buttonStyle(AccentOutlineButtonStyle())
+                .fixedSize()
             Button("Show in Finder") { model.reveal([id]) }
                 .buttonStyle(AccentOutlineButtonStyle())
+                .fixedSize()
+            ExportMenu(ids: [id])
         }
     }
 
@@ -279,6 +282,29 @@ private struct ImageDetails: View {
 }
 
 private func percent(_ v: Float) -> String { "\(Int((v * 100).rounded()))%" }
+
+/// "Export ⌄": to a folder or as a zip.
+private struct ExportMenu: View {
+    @Environment(AppModel.self) private var model
+    let ids: [UUID]
+
+    var body: some View {
+        Menu {
+            Button("Export to Folder…") { model.export(.folder, ids: ids) }
+            Button("Export as Zip…") { model.export(.zip, ids: ids) }
+        } label: {
+            HStack(spacing: 6) {
+                Text("Export")
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            }
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(AccentOutlineButtonStyle())
+        .fixedSize()
+        .disabled(model.exportProgress != nil)
+    }
+}
 
 // MARK: - Several images
 
@@ -320,11 +346,14 @@ private struct SelectionDetails: View {
                     }
                 }
             }
-            HStack(spacing: 10) {
+            FlowLayout(spacing: 10, lineSpacing: 10) {
                 Button("Show in Finder") { model.reveal(hits.map(\.id)) }
                     .buttonStyle(AccentOutlineButtonStyle())
+                    .fixedSize()
                 Button("Copy") { model.copySelection() }
                     .buttonStyle(AccentOutlineButtonStyle())
+                    .fixedSize()
+                ExportMenu(ids: hits.map(\.id))
             }
         }
     }

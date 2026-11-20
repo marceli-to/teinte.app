@@ -141,7 +141,13 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
    - Checked on contact sheets of 6 seeds: the blend keeps the content and prefers the same colours (warm streets for a red-brick street, bright food for a bright bowl). Match %: close matches 90–99 %, the tail 70–80 %.
    - Screenshots are in `design/review/similar/`.
    - Tests: 61 core + 4 app pass.
-3. Export (folder or zip)
+3. Export (folder or zip) ✅
+   - File › Export to Folder… (⇧⌘E) and Export as Zip… (⌥⇧⌘E), the same two in the context menu, and an "Export ⌄" button in the details panel (one image or the selection).
+   - The originals are copied, never moved, into one flat folder. Name clashes get "-2", "-3" …, including files already in the destination. A zip holds one folder named like the zip and is made with `NSFileCoordinator` (`.forUploading`), so there's no dependency. The default zip name comes from the chips ("Teinte – Some red, building.zip").
+   - The header shows "exporting 3 of 12…". When it's done, Finder shows the copied files or the zip. Files that couldn't be copied (folder offline) are listed in an alert.
+   - Entitlement: `files.user-selected.read-write` (was read-only). Source folders stay read-only: their bookmarks are made with `securityScopeAllowOnlyReadAccess`.
+   - Tests: 65 core + 7 app pass (naming, a real copy with clashes, a zip whose contents are checked with `zipinfo`).
+   - Screenshots are in `design/review/export/`.
 4. Language (German UI + search)
 
 Then the rest of Phase 2: FSEvents folder watching with a launch reconcile, and drag-to-reorder for saved looks.

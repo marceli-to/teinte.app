@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Observation
 import SwiftData
+import UniformTypeIdentifiers
 import TeinteCore
 
 /// What the sidebar has selected. It sets the search scope, or restores a saved look.
@@ -71,6 +72,8 @@ final class AppModel {
     var inspectorVisible = false
     /// Style-tag prompt embeddings, for the details panel. Computed once.
     var stylePromptVectors: [(StyleTag, [Float])]?
+    /// While an export runs: how many of how many files are copied.
+    var exportProgress: (done: Int, total: Int)?
 
     /// Images added in the last 7 days count as "Recently added".
     static let recentWindow: TimeInterval = 7 * 24 * 3600
@@ -656,3 +659,81 @@ extension AppModel {
         }
     }
 }
+
+// MARK: - Export
+
+extension AppModel {
+    enum ExportKind { case folder, zip }
+
+    /// The images an export acts on: the selection, in result order.
+    var exportTargets: [UUID] { selectedHits.map(\.id) }
+
+    var canExport: Bool { !selectedIDs.isEmpty && exportProgress == nil }
+
+    /// Asks where to put the selected originals, then copies them there (or into a zip).
+    func export(_ kind: ExportKind, ids: [UUID]? = nil) {
+        let ids = ids ?? exportTargets
+        guard !ids.isEmpty, exportProgress == nil else { return }
+        let count = ids.count
+        let noun = count == 1 ? "image" : "\(count.grouped) images"
+        let destination: URL
+        switch kind {
+        case .folder:
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = false
+            panel.canCreateDirectories = true
+            panel.prompt = "Export"
+            panel.message = "Choose a folder for the \(noun). The originals are copied; nothing is moved."
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            destination = url
+        case .zip:
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.zip]
+            panel.canCreateDirectories = true
+            panel.nameFieldStringValue = "\(suggestedExportName).zip"
+            panel.prompt = "Export"
+            panel.message = "The \(noun) are copied into one zip; nothing is moved."
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            destination = url
+        }
+
+        exportProgress = (0, count)
+        Task {
+            let sources = await fileURLs(ids)
+            let total = sources.count
+            exportProgress = (0, total)
+            let report: @Sendable (Int) -> Void = { [weak self] done in
+                Task { @MainActor in if self?.exportProgress != nil { self?.exportProgress = (done, total) } }
+            }
+            let result: Result<Exporter.Outcome, Error> = await Task.detached(priority: .userInitiated) {
+                let scoped = destination.startAccessingSecurityScopedResource()
+                defer { if scoped { destination.stopAccessingSecurityScopedResource() } }
+                switch kind {
+                case .folder: return .success(Exporter.copy(sources, into: destination, progress: report))
+                case .zip: return Result { try Exporter.zip(sources, to: destination, progress: report) }
+                }
+            }.value
+            exportProgress = nil
+            switch result {
+            case .success(let outcome):
+                if !outcome.written.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(outcome.written) }
+                let missing = count - total + outcome.failed.count
+                if missing > 0 {
+                    let names = outcome.failed.prefix(5).joined(separator: ", ")
+                    message = "\(missing) of \(count) images couldn't be copied"
+                        + (names.isEmpty ? " (their folder isn't available)." : ": \(names)\(outcome.failed.count > 5 ? " …" : "").")
+                }
+            case .failure(let error):
+                message = "Couldn't make the zip: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// "Teinte – mostly blue, with people", or "Teinte export".
+    var suggestedExportName: String {
+        let name = suggestedLookName.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        return name.isEmpty ? "Teinte export" : "Teinte – \(name.prefix(60))"
+    }
+}
+

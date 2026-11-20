@@ -20,6 +20,13 @@ struct TeinteApp: App {
             CommandGroup(after: .newItem) {
                 Button("Add Folder…") { model.chooseFolder() }
                     .keyboardShortcut("o")
+                Divider()
+                Button("Export to Folder…") { model.export(.folder) }
+                    .keyboardShortcut("e", modifiers: [.shift, .command])
+                    .disabled(!model.canExport)
+                Button("Export as Zip…") { model.export(.zip) }
+                    .keyboardShortcut("e", modifiers: [.option, .shift, .command])
+                    .disabled(!model.canExport)
             }
             CommandGroup(replacing: .saveItem) {
                 Button("Save as Look…") { model.saveLookRequest += 1 }
