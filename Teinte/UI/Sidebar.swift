@@ -1,5 +1,6 @@
 import SwiftUI
 import TeinteCore
+import UniformTypeIdentifiers
 
 /// LIBRARY · SAVED LOOKS · FOLDERS. The selection drives the scope or restores a look.
 struct Sidebar: View {
@@ -7,6 +8,9 @@ struct Sidebar: View {
     @State private var renaming: UUID?
     @State private var renameText = ""
     @FocusState private var renameFocused: Bool
+    /// The look being dragged, and the order shown while it moves (nil when no drag is in progress).
+    @State private var draggedLook: UUID?
+    @State private var dragOrder: [LookInfo]?
 
     var body: some View {
         ScrollView {
@@ -17,7 +21,16 @@ struct Sidebar: View {
                 }
                 if !model.looks.isEmpty {
                     section("Saved looks") {
-                        ForEach(model.looks) { look in lookRow(look) }
+                        VStack(alignment: .leading, spacing: Self.lookSpacing) {
+                            ForEach(dragOrder ?? model.looks) { look in lookRow(look) }
+                        }
+                        .onDrop(of: [.text], delegate: LookDropDelegate(
+                            dragged: $draggedLook, order: $dragOrder,
+                            rowPitch: Self.lookRowHeight + Self.lookSpacing,
+                            commit: { ids in
+                                // Keep the shown order until the model has the saved one, so the rows don't jump.
+                                Task { await model.reorderLooks(ids); dragOrder = nil }
+                            }))
                     }
                 }
                 section("Folders") {
@@ -92,7 +105,12 @@ struct Sidebar: View {
                         Spacer(minLength: 0)
                     }
                 }
-                .buttonStyle(SidebarRowStyle(selected: selected))
+                .buttonStyle(SidebarRowStyle(selected: selected || draggedLook == look.id))
+                .onDrag {
+                    draggedLook = look.id
+                    dragOrder = model.looks
+                    return NSItemProvider(object: look.id.uuidString as NSString)
+                }
                 .accessibilityLabel("Saved look: \(look.name)")
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .contextMenu {
@@ -107,6 +125,9 @@ struct Sidebar: View {
             }
         }
     }
+
+    private static let lookRowHeight: CGFloat = 32
+    private static let lookSpacing: CGFloat = 2
 
     private func lookDot(selected: Bool) -> some View {
         Circle()
@@ -151,6 +172,51 @@ struct Sidebar: View {
         renaming = nil
         let name = renameText
         Task { await model.renameLook(id, to: name) }
+    }
+}
+
+/// Drag-to-reorder for saved looks. One delegate covers the whole list and picks the slot from the
+/// pointer's height, so the gaps between rows count too. The rows move live; leaving the list puts
+/// them back, and only a drop inside it saves the new order.
+private struct LookDropDelegate: DropDelegate {
+    @Binding var dragged: UUID?
+    @Binding var order: [LookInfo]?
+    let rowPitch: CGFloat
+    let commit: ([UUID]) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        dragged != nil && info.hasItemsConforming(to: [.text])
+    }
+
+    func dropEntered(info: DropInfo) { move(to: info.location) }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard dragged != nil else { return nil }
+        move(to: info.location)
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        // Dropped elsewhere or cancelled: no drop arrives here, so put the rows back now.
+        withAnimation(.easeOut(duration: 0.15)) { order = nil }
+        dragged = nil
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard dragged != nil, let order else { return false }
+        commit(order.map(\.id))
+        dragged = nil
+        return true
+    }
+
+    private func move(to location: CGPoint) {
+        guard let dragged, var rows = order, let from = rows.firstIndex(where: { $0.id == dragged }) else { return }
+        let to = min(max(Int(location.y / rowPitch), 0), rows.count - 1)
+        guard to != from else { return }
+        withAnimation(.easeOut(duration: 0.15)) {
+            rows.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+            order = rows
+        }
     }
 }
 

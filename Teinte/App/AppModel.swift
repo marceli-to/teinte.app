@@ -642,6 +642,13 @@ final class AppModel {
         await refreshLooks()
     }
 
+    /// Saves a new order for the saved looks (drag-to-reorder in the sidebar).
+    func reorderLooks(_ ids: [UUID]) async {
+        guard ids != looks.map(\.id) else { return }
+        try? await store.reorderLooks(ids)
+        await refreshLooks()
+    }
+
     private func refreshLooks() async {
         looks = (try? await store.looks()) ?? []
     }
