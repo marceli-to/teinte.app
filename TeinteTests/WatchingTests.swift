@@ -98,6 +98,10 @@ struct WatchingTests {
         #expect(second.removed.count == 1)
         let details = try await store.details([idA])[idA]
         #expect(details?.relativePath == "sub/a-final.png")
+        // Drag-out and Quick Look find the file through the same lookup.
+        let location = try await store.locations([idA])[idA]
+        #expect(location?.relativePath == "sub/a-final.png")
+        #expect(location?.folderID == folder.id)
 
         let third = try await store.reconcile(folderID: folder.id, files: try #require(FolderScanner.scan(dir)))
         #expect(third.isEmpty)

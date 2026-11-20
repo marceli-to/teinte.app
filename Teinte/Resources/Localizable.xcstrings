@@ -1,6 +1,61 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Its %@ images leave the library. The files themselves stay where they are.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seine %@ Bilder verlassen die Bibliothek. Die Dateien selbst bleiben, wo sie sind."
+          }
+        }
+      }
+    },
+    "Quick Look": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Übersicht"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfernen"
+          }
+        }
+      }
+    },
+    "Remove Folder…": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner entfernen …"
+          }
+        }
+      }
+    },
+    "Remove “%@” from Teinte?": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ aus Teinte entfernen?"
+          }
+        }
+      }
+    },
     "%@ images selected": {
       "extractionState": "manual",
       "localizations": {
@@ -1091,13 +1146,13 @@
         }
       }
     },
-    "Remove from Teinte": {
+    "Remove from Teinte…": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus Teinte entfernen"
+            "value": "Aus Teinte entfernen …"
           }
         }
       }

@@ -6,7 +6,6 @@ import TeinteCore
 struct ResultsView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var resultsFocused: Bool
-    @State private var gridColumns = 1
 
     private var horizontalPadding: CGFloat { model.sidebarVisible ? 40 : 80 }
 
@@ -18,7 +17,7 @@ struct ResultsView: View {
                 if model.hits.isEmpty {
                     EmptyResults()
                 } else if model.viewMode == .grid {
-                    ResultsGrid(columns: $gridColumns)
+                    ResultsGrid()
                 } else {
                     ResultsList()
                 }
@@ -42,8 +41,13 @@ struct ResultsView: View {
             model.clearSelection()
             return .handled
         }
+        .onKeyPress(.space) {
+            guard !model.hits.isEmpty else { return .ignored }
+            model.toggleQuickLook()
+            return .handled
+        }
         .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
-            let row = model.viewMode == .grid ? gridColumns : 1
+            let row = model.viewMode == .grid ? model.gridColumns : 1
             let offset = switch press.key {
             case .leftArrow: model.viewMode == .grid ? -1 : 0
             case .rightArrow: model.viewMode == .grid ? 1 : 0
@@ -187,8 +191,6 @@ struct EmptyResults: View {
 
 struct ResultsGrid: View {
     @Environment(AppModel.self) private var model
-    /// How many columns fit, for the up and down arrow keys.
-    @Binding var columns: Int
 
     static let minimum: CGFloat = 200
     static let spacing: CGFloat = 18
@@ -202,8 +204,9 @@ struct ResultsGrid: View {
                     .id(hit.id)
             }
         }
+        .resultsDragContainer()
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width in
-            columns = max(1, Int((width + Self.spacing) / (Self.minimum + Self.spacing)))
+            model.gridColumns = max(1, Int((width + Self.spacing) / (Self.minimum + Self.spacing)))
         }
     }
 }
@@ -264,6 +267,8 @@ private struct ResultInteractions: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // Dragging a selected image takes the whole selection along (see `resultsDragContainer`).
+            .draggable(containerItemID: hit.id)
             // Selection happens on the first click; the double-click is recognised alongside it.
             .onTapGesture(count: 2) { model.showDetails(hit.id) }
             .simultaneousGesture(TapGesture().onEnded {
@@ -298,6 +303,37 @@ private struct ResultInteractions: ViewModifier {
 extension View {
     fileprivate func resultInteractions(hit: SearchIndex.Hit) -> some View {
         modifier(ResultInteractions(hit: hit))
+    }
+
+    /// Drag images out as their original files: Finder copies them, Mail attaches them.
+    /// Never a move, so a drag can't take a file out of its library folder.
+    fileprivate func resultsDragContainer() -> some View {
+        modifier(ResultsDragContainer())
+    }
+}
+
+private struct ResultsDragContainer: ViewModifier {
+    @Environment(AppModel.self) private var model
+
+    func body(content: Content) -> some View {
+        content
+            .dragContainer(for: DraggedImage.self, itemID: \.id) { ids in
+                ids.compactMap { id in model.resultURLs[id].map { DraggedImage(id: id, url: $0) } }
+            }
+            .dragContainerSelection(model.selectedHits.map(\.id))
+            .dragConfiguration(DragConfiguration(
+                operationsWithinApp: .init(allowCopy: false, allowMove: false, allowDelete: false),
+                operationsOutsideApp: .init(allowCopy: true, allowMove: false, allowDelete: false)))
+    }
+}
+
+/// One image on the drag pasteboard, as its file URL.
+struct DraggedImage: Transferable, Identifiable {
+    let id: UUID
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(exporting: \.url)
     }
 }
 
@@ -382,6 +418,7 @@ struct ResultsList: View {
                 Rectangle().fill(Theme.line).frame(height: 1)
             }
         }
+        .resultsDragContainer()
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width = $0 }
     }
 

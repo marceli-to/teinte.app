@@ -196,4 +196,19 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
 Phase 2 is done.
 
 ## Phase 3 — Mac polish
+
+Plan: 1. Quick Look, drag out, ⌘⌫ → 2. hover, pressed and focus states, keyboard-only pass → 3. dark mode screenshots for your review → 4. app icon.
+
+Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/⌘2, ⌘S, ⌘O, arrow keys.
+
+### Step 1 — Quick Look, drag out, remove folder (built, waiting for your check)
+
+- Quick Look: Space (or File › Quick Look, ⌘Y) opens the system preview of the focused image. With several selected, it shows those. While it's open, the arrow keys move through the results and the preview follows (with several selected, they step through the selection, as in Finder). Space closes it.
+  - Double-click still opens the details panel (your Phase 2 choice), not Quick Look.
+- Drag out: drag an image to Finder to copy it, or to Mail to attach it. Dragging a selected image takes the whole selection. It's always a copy, never a move, so a drag can't take a file out of its library folder.
+- Remove folder: select a folder in the sidebar, then ⌘⌫ (File › Remove Folder…). A dialog asks to confirm and says the files stay where they are. The sidebar's "Remove from Teinte…" asks the same way now (it removed without asking before). In the search field, ⌘⌫ still deletes to the start of the line.
+- German: "Übersicht", "Ordner entfernen …", and the dialog texts.
+- Tests: 81 core + 11 app pass. Drag and Quick Look are untested here: the shell can't press keys or drag.
+
+**Your turn:** select an image and press Space, then use the arrows. Drag one image (and a selection of a few) to Finder and into a Mail message. Select a folder and press ⌘⌫, then cancel.
 ## Phase 4 — Release prep

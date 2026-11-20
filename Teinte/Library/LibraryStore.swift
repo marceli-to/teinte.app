@@ -218,6 +218,15 @@ actor LibraryStore {
         return out
     }
 
+    /// Where each image lives: folder and path inside it (for drag-out and Quick Look).
+    func locations(_ ids: [UUID]) throws -> [UUID: (folderID: UUID, relativePath: String)] {
+        var descriptor = FetchDescriptor<ImageRecord>(predicate: #Predicate { ids.contains($0.id) })
+        descriptor.propertiesToFetch = [\.id, \.folderID, \.relativePath]
+        var out: [UUID: (folderID: UUID, relativePath: String)] = [:]
+        for r in try modelContext.fetch(descriptor) { out[r.id] = (r.folderID, r.relativePath) }
+        return out
+    }
+
     /// Send analysed images back to the queue (e.g. their embeddings belong to an older model).
     func markPending(_ ids: [UUID]) throws {
         guard !ids.isEmpty else { return }

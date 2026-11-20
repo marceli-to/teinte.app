@@ -4,12 +4,14 @@ import SwiftUI
 @main
 struct TeinteApp: App {
     @State private var model = AppModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup("Teinte") {
             MainView()
                 .environment(model)
                 .frame(minWidth: 900, minHeight: 600)
+                .onAppear(perform: connectQuickLook)
                 #if DEBUG
                 .onAppear { DebugSnapshot.runIfRequested(model: model) }
                 #endif
@@ -27,6 +29,19 @@ struct TeinteApp: App {
                 Button("Export as Zip…") { model.export(.zip) }
                     .keyboardShortcut("e", modifiers: [.option, .shift, .command])
                     .disabled(!model.canExport)
+                Divider()
+                Button("Quick Look") { model.toggleQuickLook() }
+                    .keyboardShortcut("y")
+                    .disabled(model.hits.isEmpty || model.showsImportScreen)
+                Button("Remove Folder…") {
+                    if Self.textHasFocus {
+                        NSApp.sendAction(#selector(NSResponder.deleteToBeginningOfLine(_:)), to: nil, from: nil)
+                    } else {
+                        model.requestRemoveSelectedFolder()
+                    }
+                }
+                .keyboardShortcut(.delete)
+                .disabled(model.selectedFolder == nil)
             }
             CommandGroup(replacing: .saveItem) {
                 Button("Save as Look…") { model.saveLookRequest += 1 }
@@ -84,6 +99,13 @@ struct TeinteApp: App {
             SettingsView()
                 .environment(model)
         }
+    }
+
+    private func connectQuickLook() {
+        let quickLook = appDelegate.quickLook
+        quickLook.model = model
+        model.toggleQuickLook = { quickLook.toggle() }
+        model.onSelectionChange = { quickLook.selectionChanged() }
     }
 
     /// A text field or text view is being edited (the search bar, a rename field).

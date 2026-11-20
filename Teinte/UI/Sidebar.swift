@@ -163,7 +163,7 @@ struct Sidebar: View {
             }
             .disabled(!folder.available)
             Divider()
-            Button("Remove from Teinte", role: .destructive) { Task { await model.removeFolder(folder.id) } }
+            Button("Remove from Teinte…", role: .destructive) { model.folderToRemove = folder }
         }
     }
 

@@ -83,9 +83,9 @@ final class AppModel {
 
     // Selection and details
     /// Selected images, by ID. Kept across searches only for images still in the results.
-    var selectedIDs: Set<UUID> = []
+    var selectedIDs: Set<UUID> = [] { didSet { if selectedIDs != oldValue { onSelectionChange?() } } }
     /// The image the details panel shows: the last one clicked.
-    var focusedID: UUID?
+    var focusedID: UUID? { didSet { if focusedID != oldValue { onSelectionChange?() } } }
     /// Where a ⇧-click range starts.
     var selectionAnchor: UUID?
     var inspectorVisible = false
@@ -93,6 +93,16 @@ final class AppModel {
     var stylePromptVectors: [(StyleTag, [Float])]?
     /// While an export runs: how many of how many files are copied.
     var exportProgress: (done: Int, total: Int)?
+    /// The folder the user asked to remove (⌘⌫ or the context menu); the window asks to confirm.
+    var folderToRemove: FolderRow?
+    /// File URLs of the current results, so drag-out and Quick Look can answer synchronously.
+    @ObservationIgnored var resultURLs: [UUID: URL] = [:]
+    /// Bumped when the selection changes, so an open Quick Look panel follows it.
+    @ObservationIgnored var onSelectionChange: (() -> Void)?
+    /// Opens or closes Quick Look (set by the app delegate).
+    @ObservationIgnored var toggleQuickLook: () -> Void = {}
+    /// How many columns the grid shows, for the up and down arrow keys.
+    @ObservationIgnored var gridColumns = 1
 
     /// Images added in the last 7 days count as "Recently added".
     static let recentWindow: TimeInterval = 7 * 24 * 3600
@@ -296,6 +306,16 @@ final class AppModel {
         } catch {
             message = String(localized: "Couldn't add \(url.lastPathComponent): \(error.localizedDescription)")
         }
+    }
+
+    /// The folder selected in the sidebar, which ⌘⌫ removes.
+    var selectedFolder: FolderRow? {
+        guard case .folder(let id) = selection else { return nil }
+        return folders.first { $0.id == id }
+    }
+
+    func requestRemoveSelectedFolder() {
+        folderToRemove = selectedFolder
     }
 
     func removeFolder(_ id: UUID) async {
@@ -695,6 +715,9 @@ final class AppModel {
             let outcome = await index.search(resolved, vector: vector, labelVectors: labelVectors,
                                              styleVectors: styleVectors, scope: scope, calibration: calibration)
             guard !Task.isCancelled else { return }
+            let locations = (try? await store.locations(outcome.hits.map(\.id))) ?? [:]
+            guard !Task.isCancelled else { return }
+            resultURLs = locations.compactMapValues { access.fileURL(folderID: $0.folderID, relativePath: $0.relativePath) }
             hits = outcome.hits
             total = outcome.total
             pruneSelection()

@@ -74,6 +74,16 @@ struct MainView: View {
             try? await session.prepareTranslation()
             await model.translationDownloadFinished()
         }
+        .confirmationDialog(
+            "Remove “\(model.folderToRemove?.info.displayName ?? "")” from Teinte?",
+            isPresented: Binding(get: { model.folderToRemove != nil }, set: { if !$0 { model.folderToRemove = nil } }),
+            titleVisibility: .visible, presenting: model.folderToRemove
+        ) { folder in
+            Button("Remove", role: .destructive) { Task { await model.removeFolder(folder.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { folder in
+            Text("Its \(folder.count.grouped) images leave the library. The files themselves stay where they are.")
+        }
         .alert("Teinte", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK") { model.message = nil }
         } message: {
