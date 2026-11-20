@@ -58,11 +58,23 @@ Your Phase 1 feedback: it works well. The analysis needs refinement, but the des
 - Simulated on your library: "red building" goes from 6 results (mostly sunset skylines) to 14, with the three red buildings on top.
 - Tests: 39 core + 4 app pass.
 
-### Step 2b — Analysis refinement (next session)
+### Step 2b.1 — Match % ✅ (2026-11-20)
+
+- The match % is now two checks multiplied: **relative** (how far the image stands out from the whole library for the same query, as a z-score) and **absolute** (a floor on the raw cosine, so a query with no real match stays low). Search-side only, no re-analysis.
+- Simulated on your library (top 10):
+  - "red building": 98 94 91 90 89 89 86 73 59 53
+  - "a dog": 96 95 94 88 86 76 66 58 49 40
+  - "golden hour beach": 88 81 78 … 71
+  - "blue images with people": 64 53 50 … 13
+  - "a unicorn" (none in the library): 35 27 27 … 12
+- Tuned for SigLIP base (`MatchCalibration.generic`); retune if step 5 switches model. Libraries under 30 images use the absolute check only.
+- Tests: 41 core + 4 app pass.
+
+### Step 2b — Analysis refinement (in progress)
 
 Agreed order. Steps 2–5 need a re-analysis: bump `currentAnalysisVersion` once at the end, not per step. Longer imports are fine.
 
-1. **Match %.** Replace SigLIP's raw sigmoid (shows ~0%) with a relative calibration: how a result compares with the rest of the library for the same query. Search-side only.
+1. ~~**Match %.**~~ Done (2b.1). Replace SigLIP's raw sigmoid (shows ~0%) with a relative calibration: how a result compares with the rest of the library for the same query. Search-side only.
 2. **Look descriptors.** Per image: brightness, contrast, saturation, warm/cool, a black-and-white flag, and zero-shot style/light tags from fixed SigLIP prompts ("golden hour", "overcast", "studio light", "film grain", "minimal", "aerial", "macro", "night"). New filters/chips.
 3. **Colour.**
    - Weight the subject over the background using Vision saliency, and store subject vs background colours.

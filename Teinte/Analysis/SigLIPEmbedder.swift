@@ -56,7 +56,7 @@ final class SigLIPEmbedder: EmbeddingModel, @unchecked Sendable {
         modelID = meta.modelID
         dimension = meta.dimension
         maxTokens = meta.maxTokens
-        calibration = MatchCalibration(scale: meta.logitScale, bias: meta.logitBias)
+        calibration = .generic // tuned for SigLIP base; see MatchCalibration
 
         let config = MLModelConfiguration()
         config.computeUnits = .all

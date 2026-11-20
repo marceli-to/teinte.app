@@ -8,29 +8,62 @@ public struct RankedResult: Hashable, Sendable {
     public var match: Float?
 }
 
-/// Turns raw cosine similarities into a match percentage.
+/// Turns a raw cosine similarity into a match percentage.
 ///
-/// SigLIP is trained with a sigmoid loss: p = σ(scale · cos + bias), with learned scale/bias.
-/// Those are the defaults; `offset` and `temperature` are the knobs tuned on real libraries in Phase 1.
+/// Two checks, multiplied, so a result needs both to score high:
+/// - **Relative:** how far the image stands out from the rest of the library for the same query
+///   (z-score over every embedded image). Full sentences score lower than single words, so absolute
+///   cosines alone don't compare well across queries.
+/// - **Absolute:** a floor on the cosine itself, so a query with no real match ("a unicorn")
+///   doesn't show its least-bad images as 90 %.
+///
+/// Tuned on a 993-image library with SigLIP base: real matches land at 85–99 %, the tail of a good
+/// query at 50–70 %, the best of a query with no match at ~30 %. Retune when the model changes.
 public struct MatchCalibration: Hashable, Sendable, Codable {
-    public var scale: Float
-    public var bias: Float
-    /// Added to the logit. Retrieval queries score lower than the training captions, so this lifts them.
-    public var offset: Float
-    /// Divides the logit; >1 flattens the curve.
-    public var temperature: Float
+    /// Cosine where the absolute check is 50 %.
+    public var midpoint: Float
+    /// Cosine distance from `midpoint` per logit unit (smaller = steeper).
+    public var width: Float
+    /// Z-score where the relative check is 50 %.
+    public var zMidpoint: Float
+    public var zWidth: Float
+    /// Below this many embedded images the library stats are noise; only the absolute check applies.
+    public var minLibrary: Int
 
-    public init(scale: Float, bias: Float, offset: Float = 0, temperature: Float = 1) {
-        self.scale = scale; self.bias = bias; self.offset = offset; self.temperature = temperature
+    public init(midpoint: Float, width: Float, zMidpoint: Float, zWidth: Float, minLibrary: Int = 30) {
+        self.midpoint = midpoint; self.width = width
+        self.zMidpoint = zMidpoint; self.zWidth = zWidth; self.minLibrary = minLibrary
     }
 
-    /// Fallback when model metadata is missing: maps cos 0.05 → ~12 %, 0.15 → ~88 %.
-    public static let generic = MatchCalibration(scale: 40, bias: -4)
+    public static let generic = MatchCalibration(midpoint: 0.045, width: 0.012, zMidpoint: 2.0, zWidth: 0.6)
 
-    public func match(cosine: Float) -> Float {
-        let logit = (scale * cosine + bias + offset) / max(temperature, 0.01)
-        return 1 / (1 + expf(-logit))
+    /// Mean and standard deviation of the query's cosines over the library.
+    public struct LibraryStats: Hashable, Sendable {
+        public var mean: Float
+        public var deviation: Float
+        public var count: Int
+
+        public init(mean: Float, deviation: Float, count: Int) {
+            self.mean = mean; self.deviation = deviation; self.count = count
+        }
+
+        public init(_ cosines: some Sequence<Float>) {
+            var n = 0, sum: Double = 0, squares: Double = 0
+            for c in cosines { n += 1; sum += Double(c); squares += Double(c) * Double(c) }
+            let mean = n > 0 ? sum / Double(n) : 0
+            let variance = n > 0 ? max(squares / Double(n) - mean * mean, 0) : 0
+            self.init(mean: Float(mean), deviation: Float(variance.squareRoot()), count: n)
+        }
     }
+
+    public func match(cosine: Float, library: LibraryStats?) -> Float {
+        let absolute = Self.sigmoid((cosine - midpoint) / max(width, 1e-4))
+        guard let library, library.count >= minLibrary, library.deviation > 1e-6 else { return absolute }
+        let z = (cosine - library.mean) / library.deviation
+        return absolute * Self.sigmoid((z - zMidpoint) / max(zWidth, 1e-3))
+    }
+
+    private static func sigmoid(_ x: Float) -> Float { 1 / (1 + expf(-x)) }
 }
 
 public enum Ranker {
@@ -57,13 +90,16 @@ public enum Ranker {
         if let q = queryVector, q.count == snapshot.dimension {
             let all = snapshot.scores(for: q)
             let mostly = filters.colours.contains { $0.mode == .mostly }
+            // Stats over the whole library, not just the candidates: "how good is this for the query".
+            let library = MatchCalibration.LibraryStats(
+                snapshot.rows.indices.lazy.filter { snapshot.rows[$0].embedding != nil }.map { all[$0] })
             var results = candidates.map { row -> RankedResult in
                 let cos = all[row]
                 let hasEmbedding = snapshot.rows[row].embedding != nil
                 let boosted = cos + (mostly ? colourBoostWeight * colourStrength(row) : 0)
                 return RankedResult(
                     row: row, score: hasEmbedding ? boosted : -1,
-                    match: hasEmbedding ? calibration.match(cosine: cos) : nil)
+                    match: hasEmbedding ? calibration.match(cosine: cos, library: library) : nil)
             }
             results.sort { a, b in
                 a.score != b.score ? a.score > b.score : tieBreak(a.row, b.row, snapshot)

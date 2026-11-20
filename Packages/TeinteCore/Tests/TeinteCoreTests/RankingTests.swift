@@ -64,10 +64,30 @@ struct RankingTests {
     }
 
     @Test func calibrationIsMonotonic() {
-        let cal = MatchCalibration(scale: 117, bias: -12.9)
-        let values = stride(from: Float(-0.2), through: 0.4, by: 0.01).map(cal.match(cosine:))
-        #expect(values == values.sorted())
-        #expect(values.first! < 0.01 && values.last! > 0.99)
+        let cal = MatchCalibration.generic
+        let lib = MatchCalibration.LibraryStats(mean: -0.02, deviation: 0.03, count: 1000)
+        for stats in [lib, nil] {
+            let values = stride(from: Float(-0.2), through: 0.4, by: 0.01).map { cal.match(cosine: $0, library: stats) }
+            #expect(values == values.sorted())
+            #expect(values.first! < 0.01 && values.last! > 0.99)
+        }
+    }
+
+    /// Numbers from the real library (SigLIP base, 993 images).
+    @Test func calibrationSeparatesRealMatchesFromNone() {
+        let cal = MatchCalibration.generic
+        let dog = MatchCalibration.LibraryStats(mean: -0.0159, deviation: 0.0165, count: 993)
+        let unicorn = MatchCalibration.LibraryStats(mean: -0.0161, deviation: 0.0170, count: 993)
+        let mountains = MatchCalibration.LibraryStats(mean: -0.0086, deviation: 0.0370, count: 993)
+        #expect(cal.match(cosine: 0.0841, library: dog) > 0.9)       // best dog
+        #expect(cal.match(cosine: 0.1277, library: mountains) > 0.8) // best snowy mountain
+        #expect(cal.match(cosine: 0.0397, library: unicorn) < 0.4)   // no unicorns in the library
+    }
+
+    @Test func smallLibraryUsesAbsoluteOnly() {
+        let cal = MatchCalibration.generic
+        let tiny = MatchCalibration.LibraryStats(mean: 0, deviation: 0.03, count: 5)
+        #expect(cal.match(cosine: 0.09, library: tiny) == cal.match(cosine: 0.09, library: nil))
     }
 
     @Test func scoresMatchManualDotProducts() {
