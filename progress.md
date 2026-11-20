@@ -118,6 +118,7 @@ Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tun
 
 - Everything is committed and pushed on `main`. The app builds, and all tests pass (74 core + 7 app). Your library is on analysis v3.
 - Step 3 status: selection + details ✅, Find similar ✅, export ✅, language ✅. **Next: FSEvents folder watching with a launch reconcile**, then drag-to-reorder for saved looks.
+- **Your turn (step 3.4):** try a few German searches, click "Download German translation" once and check that Apple's prompt appears, and say whether you want "du" + ß (current) or Swiss "ss" / "Sie".
 - Handy tools outside the repo (rebuild if `/tmp` was cleared):
   - `/tmp/teinte-probe/probe "<text>"`: SigLIP cosines over `embeddings.bin`.
   - `/tmp/teinte-colour/colour <file>`: colour analysis of one image.
