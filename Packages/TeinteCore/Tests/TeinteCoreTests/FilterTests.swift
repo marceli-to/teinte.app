@@ -26,7 +26,7 @@ struct FilterTests {
         return FilterEngine.candidates(in: snapshot, query: q, scope: scope)
     }
 
-    @Test("mostly: share ≥ 0.40", arguments: [(Float(0.39), false), (0.40, true), (0.9, true)])
+    @Test("mostly: share ≥ 0.33", arguments: [(Float(0.32), false), (0.33, true), (0.9, true)])
     func mostly(share: Float, passes: Bool) {
         #expect(ColourMode.mostly.matches(share: share) == passes)
         #expect(run([Self.image(blue: share)], QueryFilters(colours: [.init(.blue, .mostly)])).count == (passes ? 1 : 0))
@@ -131,6 +131,63 @@ struct FilterTests {
         #expect(without.people == nil)
         #expect(without.colours == f.colours)
         #expect(without.chips.count == 2)
+    }
+
+    @Test func looksUtilityBestShotsAndText() {
+        func img(_ look: LookMetrics, text: String = "", aesthetics: Float? = nil, utility: Bool = false) -> ImageFeatures {
+            ImageFeatures(look: look, recognizedText: ImageFeatures.foldForSearch(text), aesthetics: aesthetics, isUtility: utility)
+        }
+        let bright = LookMetrics(brightness: 0.8, contrast: 0.1, saturation: 0.05, warmth: 0.05, colourfulShare: 0.9)
+        let bw = LookMetrics(brightness: 0.3, contrast: 0.3, saturation: 0.005, warmth: 0, colourfulShare: 0.01)
+        let imgs = [
+            img(bright, text: "Café Ouvert\nSALE", aesthetics: 0.8),
+            img(bw, aesthetics: -0.2, utility: true),
+            img(LookMetrics.neutral, aesthetics: 0.6, utility: true), // a flat-lay Vision calls "utility"
+        ]
+        #expect(run(imgs, QueryFilters(looks: [.bright])) == [0])
+        #expect(run(imgs, QueryFilters(utility: .with)) == [1])
+        #expect(run(imgs, QueryFilters(looks: [.warm])) == [0])
+        #expect(run(imgs, QueryFilters(looks: [.blackAndWhite])) == [1])
+        #expect(run(imgs, QueryFilters(looks: [.dark, .highContrast])) == [1])
+        #expect(run(imgs, QueryFilters(utility: .without)) == [0, 2])
+        #expect(run(imgs, QueryFilters(bestShots: true)) == [0])
+        #expect(run(imgs, QueryFilters(textQuery: "cafe sale")) == [0])
+        #expect(run(imgs, QueryFilters(textQuery: "closed")).isEmpty)
+    }
+
+    @Test func backgroundColourUsesTheBackgroundShares() {
+        var product = Self.image(blue: 0.5)
+        product.subjectShares = Self.shares([.blue: 1])
+        product.backgroundShares = Self.shares([.white: 1])
+        let unknown = Self.image(blue: 0.5) // no saliency: falls back to the whole image
+        let f = QueryFilters(colours: [.init(.white, .mostly, region: .background)])
+        #expect(run([product, unknown], f) == [0, 1])
+        #expect(run([product], QueryFilters(colours: [.init(.blue, .mostly, region: .background)])).isEmpty)
+    }
+
+    @Test func styleTagsAreJudgedAgainstTheLibrary() {
+        var snapshot = IndexSnapshot(dimension: 2)
+        for _ in 0..<40 { snapshot.upsert(ImageFeatures(embedding: [1, 0])) }
+        let q = ResolvedQuery(filters: QueryFilters(styles: [.night]), resolver: .empty)
+        // 38 ordinary rows at cos −0.02, one clear night shot (0.12), one weak one (0.03).
+        var scores = [Float](repeating: -0.02, count: 40)
+        scores[3] = 0.12; scores[7] = 0.03
+        #expect(FilterEngine.candidates(in: snapshot, query: q, styleScores: [scores]) == [3])
+        // No embedding model: the tag can't be judged and is ignored.
+        #expect(FilterEngine.candidates(in: snapshot, query: q).count == 40)
+    }
+
+    @Test func parentLabels() {
+        let out = LabelResolver.addingParents([("skyscraper", 0.4), ("dog", 0.9), ("structure", 0.8)])
+        let d = Dictionary(uniqueKeysWithValues: out)
+        #expect(d["building"] == 0.4 && d["animal"] == 0.9)
+        #expect(out.first?.0 == "animal" || out.first?.0 == "dog")
+    }
+
+    @Test func savedLooksFromBeforeDecode() throws {
+        let old = #"{"colours":[{"bucket":"blue","mode":"mostly"}],"labels":["dog"]}"#
+        let f = try JSONDecoder().decode(QueryFilters.self, from: Data(old.utf8))
+        #expect(f.colours == [.init(.blue, .mostly)] && f.labels == ["dog"] && f.looks.isEmpty && !f.bestShots)
     }
 
     @Test func snapshotRemoveKeepsMatrixAligned() {

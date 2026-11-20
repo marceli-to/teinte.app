@@ -28,6 +28,9 @@ struct AnalysisResult: Sendable {
     var hasText: Bool
     var labels: [(String, Float)]
     var embedding: [Float]?
+    var recognizedText: String = ""
+    var aesthetics: Float?
+    var isUtility: Bool = false
 }
 
 struct FolderInfo: Sendable, Identifiable, Hashable {
@@ -150,6 +153,12 @@ actor LibraryStore {
             r.hasText = result.hasText
             r.labels = result.labels.map(\.0)
             r.labelConfidences = result.labels.map(\.1)
+            r.subjectShares = result.colours.subjectShares
+            r.backgroundShares = result.colours.backgroundShares
+            r.look = result.colours.look
+            r.recognizedText = result.recognizedText
+            r.aesthetics = result.aesthetics
+            r.isUtility = result.isUtility
             r.status = .done
             r.failureReason = nil
             r.analysisVersion = currentAnalysisVersion
@@ -179,6 +188,7 @@ actor LibraryStore {
         var palette: [PaletteEntry]
         var labels: [(String, Float)]
         var failureReason: String?
+        var recognizedText: String
     }
 
     func details(_ ids: [UUID]) throws -> [UUID: Details] {
@@ -187,7 +197,8 @@ actor LibraryStore {
         for r in records {
             out[r.id] = Details(
                 relativePath: r.relativePath, folderID: r.folderID, palette: r.paletteEntries,
-                labels: Array(zip(r.labels, r.labelConfidences)), failureReason: r.failureReason)
+                labels: Array(zip(r.labels, r.labelConfidences)), failureReason: r.failureReason,
+                recognizedText: r.recognizedText)
         }
         return out
     }

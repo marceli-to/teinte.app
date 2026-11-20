@@ -122,19 +122,21 @@ actor AnalysisQueue {
         guard let loaded = ImageLoader.load(url) else { return .failure(.unreadable) }
         thumbnails.store(loaded.thumbnail, for: item.id)
 
-        let colours = ColourAnalyzer().analyze(loaded.thumbnail)
         let vision: VisionAnalyzer.Output
         do {
-            vision = try await VisionAnalyzer.analyze(loaded.thumbnail)
+            vision = try await VisionAnalyzer.analyze(thumbnail: loaded.thumbnail, detail: loaded.detail)
         } catch {
             return .failure(.vision(error.localizedDescription))
         }
+        // After Vision: the saliency map weights the subject's colours over the background.
+        let colours = ColourAnalyzer().analyze(loaded.thumbnail, saliency: vision.saliency)
         let embedding = try? await embedder?.embed(image: loaded.thumbnail)
 
         return .success(AnalysisResult(
             id: item.id, pixelWidth: loaded.pixelWidth, pixelHeight: loaded.pixelHeight, colours: colours,
             personCount: vision.personCount, faceCount: vision.faceCount, hasText: vision.hasText,
-            labels: vision.labels, embedding: embedding))
+            labels: vision.labels, embedding: embedding, recognizedText: vision.recognizedText,
+            aesthetics: vision.aesthetics, isUtility: vision.isUtility))
     }
 }
 

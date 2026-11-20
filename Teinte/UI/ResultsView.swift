@@ -222,7 +222,13 @@ private struct DebugOverlay: View {
             .map { "\($0.bucket.rawValue) \(Int(($0.share * 100).rounded()))%" }.joined(separator: " ")
         VStack(alignment: .leading, spacing: 1) {
             Text(colours)
-            Text("people \(f.personCount) · faces \(f.faceCount)\(f.hasText ? " · text" : "")")
+            Text("people \(f.personCount) · faces \(f.faceCount)\(f.hasText ? " · text" : "")\(f.isUtility ? " · utility" : "")")
+            Text(String(format: "L %.2f · ctr %.2f · sat %.3f · warm %.3f%@", f.look.brightness, f.look.contrast,
+                        f.look.saturation, f.look.warmth, f.look.isBlackAndWhite ? " · b&w" : ""))
+            if let a = f.aesthetics { Text(String(format: "aesthetics %.2f", a)) }
+            if !f.recognizedText.isEmpty {
+                Text("“\(f.recognizedText.replacingOccurrences(of: "\n", with: " ").prefix(40))”")
+            }
             Text(f.labels.prefix(4).map(LabelResolver.displayName).joined(separator: ", "))
             Text(String(format: "cos %.3f", hit.score))
         }

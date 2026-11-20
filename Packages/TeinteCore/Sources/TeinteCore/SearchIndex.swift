@@ -20,14 +20,28 @@ public struct ImageFeatures: Hashable, Sendable {
     /// L2-normalised embedding, or nil if not computed yet.
     public var embedding: [Float]?
     public var available: Bool
+    /// Shares of the salient subject and of the background. Empty when unknown.
+    public var subjectShares: [Float]
+    public var backgroundShares: [Float]
+    public var look: LookMetrics
+    /// Recognised text, folded for search (lowercase, no diacritics).
+    public var recognizedText: String
+    /// Vision's overall aesthetics score, −1…1. Nil when not computed.
+    public var aesthetics: Float?
+    /// Screenshot, document, receipt …
+    public var isUtility: Bool
 
     public init(
         id: UUID = UUID(), folderID: UUID = UUID(), fileName: String = "", addedAt: Date = .now,
         pixelWidth: Int = 1, pixelHeight: Int = 1,
         bucketShares: [Float] = ColourProfile.empty.bucketShares,
         personCount: Int = 0, faceCount: Int = 0, hasText: Bool = false, labels: [String] = [],
-        palette: [PaletteEntry] = [], embedding: [Float]? = nil, available: Bool = true
+        palette: [PaletteEntry] = [], embedding: [Float]? = nil, available: Bool = true,
+        subjectShares: [Float] = [], backgroundShares: [Float] = [], look: LookMetrics = .neutral,
+        recognizedText: String = "", aesthetics: Float? = nil, isUtility: Bool = false
     ) {
+        self.subjectShares = subjectShares; self.backgroundShares = backgroundShares; self.look = look
+        self.recognizedText = recognizedText; self.aesthetics = aesthetics; self.isUtility = isUtility
         self.id = id; self.folderID = folderID; self.fileName = fileName; self.addedAt = addedAt
         self.pixelWidth = pixelWidth; self.pixelHeight = pixelHeight; self.bucketShares = bucketShares
         self.personCount = personCount; self.faceCount = faceCount; self.hasText = hasText
@@ -37,6 +51,25 @@ public struct ImageFeatures: Hashable, Sendable {
     public var orientation: Orientation { Orientation(width: pixelWidth, height: pixelHeight) }
 
     public func share(of bucket: ColourBucket) -> Float { bucketShares[bucket.index] }
+
+    /// Share in one region; falls back to the whole image when the region wasn't measured.
+    public func share(of bucket: ColourBucket, in region: ColourRegion?) -> Float {
+        switch region {
+        case .subject? where subjectShares.count == bucketShares.count: subjectShares[bucket.index]
+        case .background? where backgroundShares.count == bucketShares.count: backgroundShares[bucket.index]
+        default: bucketShares[bucket.index]
+        }
+    }
+
+    /// Vision's `isUtility` also flags well-shot flat-lays and desk photos (aesthetics 0.3–0.8 on a
+    /// professional library); real screenshots and scans score low. Both must hold.
+    public static let utilityMaxAesthetics: Float = 0.25
+    public var isScreenshotOrDocument: Bool { isUtility && (aesthetics ?? -1) < Self.utilityMaxAesthetics }
+
+    /// Text folded the same way as `recognizedText`.
+    public static func foldForSearch(_ s: String) -> String {
+        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+    }
 }
 
 /// Which part of the library a query looks at (the sidebar selection).

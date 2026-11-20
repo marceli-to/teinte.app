@@ -55,6 +55,27 @@ public struct LabelResolver: Sendable {
         "automobile": ["car"],
     ]
 
+    /// Parent labels stored with an image, so "building" is on the record when Vision only said "skyscraper".
+    static let parents: [String: [String]] = {
+        var out: [String: [String]] = [:]
+        for parent in ["building", "house_single"] {
+            for child in related[parent] ?? [] { out[child, default: []].append(parent) }
+        }
+        for animal in ["dog", "cat"] { out[animal, default: []].append("animal") }
+        return out
+    }()
+
+    /// `labels` plus their parents. A parent gets the highest confidence of its children
+    /// (or keeps its own if Vision already gave it a higher one). Sorted by confidence.
+    public static func addingParents(_ labels: [(String, Float)]) -> [(String, Float)] {
+        var best: [String: Float] = [:]
+        for (label, confidence) in labels {
+            best[label] = max(best[label] ?? 0, confidence)
+            for parent in parents[label] ?? [] { best[parent] = max(best[parent] ?? 0, confidence) }
+        }
+        return best.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map { ($0.key, $0.value) }
+    }
+
     /// The identifiers that satisfy a resolved label: itself plus its related group (only ones Vision knows).
     public func group(for identifier: String) -> [String] {
         [identifier] + (Self.related[identifier] ?? []).filter { vocabulary.isEmpty || vocabulary.contains($0) }

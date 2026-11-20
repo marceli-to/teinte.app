@@ -79,12 +79,12 @@ public enum Ranker {
         candidates: [Int], in snapshot: IndexSnapshot, queryVector: [Float]?,
         filters: QueryFilters, calibration: MatchCalibration = .generic
     ) -> [RankedResult] {
-        let boostBuckets = filters.colours.filter { $0.mode != .without }.map(\.bucket)
+        let boost = filters.colours.filter { $0.mode != .without }
 
         func colourStrength(_ row: Int) -> Float {
-            guard !boostBuckets.isEmpty else { return 0 }
+            guard !boost.isEmpty else { return 0 }
             let r = snapshot.rows[row]
-            return boostBuckets.reduce(0) { $0 + r.share(of: $1) } / Float(boostBuckets.count)
+            return boost.reduce(0) { $0 + r.share(of: $1.bucket, in: $1.region) } / Float(boost.count)
         }
 
         if let q = queryVector, q.count == snapshot.dimension {

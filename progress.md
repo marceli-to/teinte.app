@@ -70,17 +70,43 @@ Your Phase 1 feedback: it works well. The analysis needs refinement, but the des
 - Tuned for SigLIP base (`MatchCalibration.generic`); retune if step 5 switches model. Libraries under 30 images use the absolute check only.
 - Tests: 41 core + 4 app pass.
 
+### Step 2b.2–4 — Looks, colour, Vision ✅ (2026-11-20)
+
+Analysis v3. Your library was re-analysed once (993 images, about 6 minutes).
+
+- **Looks (measured):** brightness, contrast, saturation, warmth, black and white. New chips: bright, dark, high/low contrast, vivid, muted, warm, cool, black & white. Thresholds are tuned so each picks about 10–15 % of your library: bright 176, dark 101, high contrast 86, low contrast 104, vivid 103, muted 156, warm 125, cool 127, b&w 100.
+- **Style tags (SigLIP, judged against the library like the match %):** golden hour 20, overcast 24, film grain 13, minimal 20, aerial 18, macro 37, night 46, studio light 0 (your library has no studio shots). The picks were checked on contact sheets and look right, except film grain, which leans towards faded vintage looks.
+- **Colour:**
+  - Shares now come from the pixels (128 px, aspect kept), not the cluster centres.
+  - Vision saliency weights the subject (background pixels count 0.3).
+  - Border colours count towards both buckets: terracotta and brick are now red + brown, not all brown. Images that were "mostly brown" went from 225 to 165.
+  - The palette uses 8 clusters.
+  - Subject and background colours are stored separately: "product on a white background" is a new filter.
+  - Shares spread more, so "mostly" is now ≥ 33 % (was 40 %), which keeps the counts about the same.
+- **Vision:**
+  - People, faces and text run at 1536 px. People = bodies + faces without a body.
+  - Recognised text is stored and searchable: quotes, "saying X", "the word X". Images with text went from 36 to 95.
+  - Animals (dog, cat) and parent labels (skyscraper → building, dog → animal) are added.
+  - Each image gets an aesthetics score: "best shots" (≥ 0.7) picks 269 images.
+  - "Screenshots & documents" needs Vision's utility flag **and** a low aesthetics score, because Vision also flags well-shot flat-lays. Your library has no screenshots, so this filter is untested on real ones.
+  - People counts barely changed (93 → 95 images with people, faces 19 → 20).
+- The rule parser and the Foundation Models schema know all the new filters. Three of the 20 example sentences changed meaning ("black and white" and "warm" are now looks, "minimal" is now a style). PLAN.md §4, §5.2 and §8 are updated.
+- Fix along the way: Swift Vision key paths (`\.boundingBox`) crash the app at launch on macOS 26 when it's built with the 27 SDK. They're replaced with closures, and the gotcha is noted in PLAN.md.
+- Tests: 54 core + 4 app pass.
+
+**Your turn:** try "black and white", "warm", "golden hour", "aerial", "night", "my best photos of the beach", "product on a white background", a word you know is in a photo (e.g. "kindle"), and "red building". The analysis details (⌥⌘D) now show the look values, aesthetics and recognised text.
+
 ### Step 2b — Analysis refinement (in progress)
 
 Agreed order. Steps 2–5 need a re-analysis: bump `currentAnalysisVersion` once at the end, not per step. Longer imports are fine.
 
 1. ~~**Match %.**~~ Done (2b.1). Replace SigLIP's raw sigmoid (shows ~0%) with a relative calibration: how a result compares with the rest of the library for the same query. Search-side only.
-2. **Look descriptors.** Per image: brightness, contrast, saturation, warm/cool, a black-and-white flag, and zero-shot style/light tags from fixed SigLIP prompts ("golden hour", "overcast", "studio light", "film grain", "minimal", "aerial", "macro", "night"). New filters/chips.
-3. **Colour.**
+2. ~~**Look descriptors.**~~ Done (2b.2–4). Per image: brightness, contrast, saturation, warm/cool, a black-and-white flag, and zero-shot style/light tags from fixed SigLIP prompts ("golden hour", "overcast", "studio light", "film grain", "minimal", "aerial", "macro", "night"). New filters/chips.
+3. ~~**Colour.**~~ Done.
    - Weight the subject over the background using Vision saliency, and store subject vs background colours.
    - Use about 8 clusters at more than 64×64 (the image is currently squashed).
    - Let a colour count partly towards two neighbouring buckets; red brick currently lands in brown.
-4. **Vision.**
+4. ~~**Vision.**~~ Done.
    - Run people/face detection at about 1024–1536 px instead of the 512 thumbnail, and pair faces with bodies for counts.
    - Store the recognised text so it's searchable, and add parent labels.
    - Add animal recognition and the aesthetics score, which also flags screenshots and documents.

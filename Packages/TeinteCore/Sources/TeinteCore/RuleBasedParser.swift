@@ -24,6 +24,14 @@ public struct RuleBasedParser: QueryParsing {
         var state = ParseState(sentence)
         var filters = QueryFilters()
 
+        filters.textQuery = state.quoted
+        if state.monochrome { filters.looks.append(.blackAndWhite) }
+        // Styles first: "golden hour" isn't the colour gold.
+        filters.styles = state.matchStyles()
+        filters.looks += state.matchLooks()
+        filters.utility = state.matchUtility()
+        filters.bestShots = state.matchBestShots()
+        if filters.textQuery == nil { filters.textQuery = state.matchSaying() }
         filters.text = state.matchText()
         filters.faces = state.matchFaces()
         filters.orientation = state.matchOrientation()
@@ -118,16 +126,30 @@ struct ParseState {
     struct Token { var text: String; var consumed = false }
 
     var tokens: [Token] = []
-    /// Fragments lifted out before tokenising ("black and white").
+    /// Fragments lifted out before tokenising.
     var fragments: [String] = []
+    /// "black and white", "monochrome" … (lifted out: they look like colours but aren't).
+    var monochrome = false
+    /// Text in quotes: words to find in the image ('a sign saying "open"').
+    var quoted: String?
 
     init(_ sentence: String) {
-        var s = " " + sentence.lowercased() + " "
+        var raw = sentence
+        // Quoted text is searched in the image, verbatim. Straight quotes, curly quotes, guillemets.
+        for (open, close) in [("\"", "\""), ("“", "”"), ("„", "“"), ("«", "»"), ("‘", "’")] {
+            while let a = raw.range(of: open), let b = raw.range(of: close, range: a.upperBound..<raw.endIndex) {
+                let inner = raw[a.upperBound..<b.lowerBound].trimmingCharacters(in: .whitespaces)
+                if !inner.isEmpty, quoted == nil { quoted = inner }
+                raw.replaceSubrange(a.lowerBound..<b.upperBound, with: " ")
+            }
+        }
+        var s = " " + raw.lowercased() + " "
         // Phrases that look like colours but mean something else.
-        let monochrome = ["black-and-white", "black and white", "black & white", "b&w", "b & w", "monochrome", "greyscale", "grayscale"]
-        for phrase in monochrome where s.contains(phrase) {
+        let monochromePhrases = ["black-and-white", "black and white", "black & white", "b&w", "b & w", "monochrome",
+                                 "monochromatic", "greyscale", "grayscale"]
+        for phrase in monochromePhrases where s.contains(phrase) {
             s = s.replacingOccurrences(of: phrase, with: " ")
-            fragments.append("black and white")
+            monochrome = true
         }
         var current = ""
         func flush() {
@@ -181,7 +203,6 @@ struct ParseState {
         for i in tokens.indices {
             let t = tokens[i].text
             if t == "text-free" || t == "textless" { consume(i...i); result = result ?? .without; continue }
-            if t == "screenshot" || t == "screenshots" { result = result ?? .with; continue }
             guard nouns.contains(t), free(i) else { continue }
             var start = i
             var negated = false
@@ -199,6 +220,146 @@ struct ParseState {
             result = result ?? (negated ? .without : .with)
         }
         return result
+    }
+
+    // MARK: Styles
+
+    /// Multi-word phrases first, then single words.
+    mutating func matchStyles() -> [StyleTag] {
+        let phrases: [([String], StyleTag)] = [
+            (["golden", "hour"], .goldenHour), (["magic", "hour"], .goldenHour),
+            (["studio", "light"], .studioLight), (["studio", "lighting"], .studioLight), (["studio", "lit"], .studioLight),
+            (["film", "grain"], .filmGrain), (["film", "photos"], .filmGrain), (["film", "photo"], .filmGrain),
+            (["film", "photography"], .filmGrain), (["shot", "on", "film"], .filmGrain),
+            (["from", "above"], .aerial), (["bird's", "eye"], .aerial), (["birds", "eye"], .aerial),
+            (["at", "night"], .night), (["by", "night"], .night),
+        ]
+        let words: [String: StyleTag] = [
+            "overcast": .overcast, "cloudy": .overcast,
+            "studio": .studioLight,
+            "grainy": .filmGrain, "analog": .filmGrain, "analogue": .filmGrain, "35mm": .filmGrain,
+            "minimal": .minimal, "minimalist": .minimal, "minimalistic": .minimal,
+            "aerial": .aerial, "aerials": .aerial, "drone": .aerial, "bird's-eye": .aerial, "top-down": .aerial,
+            "macro": .macro,
+            "night": .night, "nighttime": .night, "night-time": .night, "nightly": .night,
+        ]
+        var found: [(Int, StyleTag)] = []
+        for (phrase, tag) in phrases {
+            var i = 0
+            while i + phrase.count <= tokens.count {
+                let range = i...(i + phrase.count - 1)
+                if range.allSatisfy({ free($0) }), range.map({ tokens[$0].text }) == phrase {
+                    consume(range); found.append((i, tag)); i += phrase.count
+                } else { i += 1 }
+            }
+        }
+        for i in tokens.indices where free(i) {
+            if let tag = words[tokens[i].text] { consume(i...i); found.append((i, tag)) }
+        }
+        return found.sorted { $0.0 < $1.0 }.map(\.1)
+    }
+
+    // MARK: Looks
+
+    mutating func matchLooks() -> [LookFilter] {
+        let phrases: [([String], LookFilter)] = [
+            (["high", "contrast"], .highContrast), (["low", "contrast"], .lowContrast),
+            (["washed", "out"], .muted), (["low", "key"], .dark), (["high", "key"], .bright),
+        ]
+        let words: [String: LookFilter] = [
+            "bright": .bright, "airy": .bright, "high-key": .bright, "sunny": .bright,
+            "dark": .dark, "moody": .dark, "low-key": .dark, "gloomy": .dark,
+            "high-contrast": .highContrast, "contrasty": .highContrast, "punchy": .highContrast,
+            "low-contrast": .lowContrast, "flat": .lowContrast, "faded": .lowContrast, "hazy": .lowContrast,
+            "vivid": .vivid, "saturated": .vivid, "colourful": .vivid, "colorful": .vivid, "vibrant": .vivid,
+            "muted": .muted, "desaturated": .muted, "pastel": .muted, "pastels": .muted, "washed-out": .muted,
+            "subdued": .muted,
+            "warm": .warm, "warmer": .warm, "warm-toned": .warm,
+            "cool": .cool, "cold": .cool, "cooler": .cool, "cool-toned": .cool, "cold-toned": .cool,
+        ]
+        var found: [(Int, LookFilter)] = []
+        for (phrase, look) in phrases {
+            for i in tokens.indices where i + phrase.count <= tokens.count {
+                let range = i...(i + phrase.count - 1)
+                if range.allSatisfy({ free($0) }), range.map({ tokens[$0].text }) == phrase {
+                    consume(range); found.append((i, look))
+                }
+            }
+        }
+        for i in tokens.indices where free(i) {
+            guard let look = words[tokens[i].text] else { continue }
+            // "dark blue", "bright red": a shade of the colour, not the look of the image.
+            if let next = text(i + 1), Lexicon.colourWords[next] != nil { continue }
+            consume(i...i)
+            // "warm tones", "cool colours"
+            if let next = text(i + 1), ["tones", "tone", "toned", "colours", "colors", "light", "lighting"].contains(next),
+               look == .warm || look == .cool {
+                if next != "light" && next != "lighting" { consume((i + 1)...(i + 1)) }
+            }
+            found.append((i, look))
+        }
+        return found.sorted { $0.0 < $1.0 }.map(\.1)
+    }
+
+    // MARK: Screenshots and documents
+
+    mutating func matchUtility() -> Presence? {
+        let nouns: Set<String> = [
+            "screenshot", "screenshots", "screengrab", "screengrabs", "document", "documents", "receipt", "receipts",
+            "scan", "scans", "scanned", "invoice", "invoices", "slide", "slides", "whiteboard", "whiteboards",
+        ]
+        var result: Presence?
+        for i in tokens.indices where free(i) && nouns.contains(tokens[i].text) {
+            var start = i
+            var j = i - 1
+            while j >= 0, ["any", "a", "the"].contains(tokens[j].text) { j -= 1 }
+            var negated = false
+            if j >= 0, Lexicon.negations.contains(tokens[j].text) { negated = true; start = j }
+            consume(start...i)
+            result = result ?? (negated ? .without : .with)
+        }
+        return result
+    }
+
+    // MARK: Best shots
+
+    mutating func matchBestShots() -> Bool {
+        let praise: Set<String> = ["best", "good", "great", "nice", "beautiful", "stunning", "favourite", "favorite",
+                                   "well-composed", "high-quality", "finest", "top"]
+        var found = false
+        for i in tokens.indices where free(i) {
+            let t = tokens[i].text
+            if t == "high", text(i + 1) == "quality" { consume(i...(i + 1)); found = true; continue }
+            if t == "well", text(i + 1) == "composed" { consume(i...(i + 1)); found = true; continue }
+            guard praise.contains(t), let next = text(i + 1),
+                  Lexicon.imageNouns.contains(next) || next == "quality" else { continue }
+            consume(i...i)
+            if i > 0, ["my", "the", "our"].contains(tokens[i - 1].text) { consume((i - 1)...(i - 1)) }
+            found = true
+        }
+        return found
+    }
+
+    // MARK: Words in the image
+
+    /// "a sign saying open", "that says sale", "with the word exit". (Quotes are handled earlier.)
+    mutating func matchSaying() -> String? {
+        for i in tokens.indices where free(i) {
+            let t = tokens[i].text
+            var start = i, wordIndex: Int?
+            if ["saying", "says", "reads", "reading"].contains(t) {
+                wordIndex = i + 1
+                if i > 0, tokens[i - 1].text == "that" { start = i - 1 }
+            } else if t == "word" || t == "words" {
+                wordIndex = i + 1
+                var j = i - 1
+                while j >= 0, ["the", "with", "a"].contains(tokens[j].text) { start = j; j -= 1 }
+            }
+            guard let w = wordIndex, free(w), let word = text(w), word != "," else { continue }
+            consume(start...w)
+            return word
+        }
+        return nil
     }
 
     // MARK: Faces
@@ -413,12 +574,35 @@ struct ParseState {
 
             var end = i
             if let n = text(i + 1), colourNouns.contains(n) { end = i + 1 }
+            // "on a white background", "against a black backdrop": the colour of the background only.
+            var region: ColourRegion?
+            var k = end + 1
+            while let n = text(k), Lexicon.colourWords[n] != nil || ["and", "or", ",", "-"].contains(n) { k += 1 }
+            if let n = text(k), ["background", "backgrounds", "backdrop", "backdrops"].contains(n) {
+                region = .background
+                if mode == .contains, !sawContains { mode = nil }
+                if k == end + 1 { end = k }
+                var b = start - 1
+                while b >= 0, ["a", "an", "the", "on", "against", "in", "over", "with"].contains(tokens[b].text) { b -= 1 }
+                start = b + 1
+            }
             consume(start...end)
             // List glue between two colours ("orange and pink").
             if i >= 2, ["and", "or", ","].contains(tokens[i - 1].text), Lexicon.colourWords[tokens[i - 2].text] != nil {
                 consume((i - 1)...(i - 1))
             }
-            result.append(ColourFilter(bucket, mode ?? .mostly))
+            result.append(ColourFilter(bucket, mode ?? .mostly, region: region))
+        }
+        // "white and grey background": the noun after the last colour belongs to all of them.
+        for (idx, c) in result.enumerated() where c.region == .background {
+            var j = idx - 1
+            while j >= 0, result[j].region == nil, result[j].mode == c.mode || result[j].mode == .contains {
+                result[j].region = .background; result[j].mode = c.mode; j -= 1
+            }
+        }
+        for i in tokens.indices where !tokens[i].consumed && ["background", "backgrounds", "backdrop", "backdrops"].contains(tokens[i].text)
+            && result.contains(where: { $0.region == .background }) {
+            consume(i...i)
         }
         return result
     }

@@ -106,8 +106,44 @@ struct ChipButton: View {
         case .orientation(let o):
             Image(systemName: o == .portrait ? "rectangle.portrait" : o == .square ? "square" : "rectangle")
                 .font(.system(size: 11)).foregroundStyle(Theme.ink)
+        case .look(let l):
+            Image(systemName: Self.symbol(for: l)).font(.system(size: 11)).foregroundStyle(Theme.ink)
+        case .style(let t):
+            Image(systemName: Self.symbol(for: t)).font(.system(size: 11)).foregroundStyle(Theme.ink)
+        case .textQuery:
+            Image(systemName: "text.quote").font(.system(size: 11)).foregroundStyle(Theme.ink)
+        case .utility:
+            Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(Theme.ink)
+        case .bestShots:
+            Image(systemName: "star").font(.system(size: 11)).foregroundStyle(Theme.ink)
         case .label, .freeText:
             EmptyView()
+        }
+    }
+
+    static func symbol(for look: LookFilter) -> String {
+        switch look {
+        case .bright: "sun.max"
+        case .dark: "moon"
+        case .highContrast, .lowContrast: "circle.lefthalf.filled"
+        case .vivid: "drop.fill"
+        case .muted: "drop"
+        case .warm: "thermometer.sun"
+        case .cool: "thermometer.snowflake"
+        case .blackAndWhite: "circle.righthalf.filled"
+        }
+    }
+
+    static func symbol(for style: StyleTag) -> String {
+        switch style {
+        case .goldenHour: "sun.horizon"
+        case .overcast: "cloud"
+        case .studioLight: "light.max"
+        case .filmGrain: "film"
+        case .minimal: "square.dashed"
+        case .aerial: "airplane"
+        case .macro: "magnifyingglass"
+        case .night: "moon.stars"
         }
     }
 }

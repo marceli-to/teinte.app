@@ -104,8 +104,52 @@ struct ColourShareTests {
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
         let profile = ColourAnalyzer().analyze(image)
-        #expect(abs(profile.share(of: .red) - 0.6) < 0.06)
+        // Terracotta sits on the red/brown border (h≈39°), so it counts towards both.
+        #expect(profile.share(of: .red) > 0.2 && profile.share(of: .brown) > 0.1)
+        #expect(abs(profile.share(of: .red) + profile.share(of: .brown) + profile.share(of: .orange) - 0.6) < 0.06)
         #expect(abs(profile.share(of: .white) - 0.4) < 0.06)
+    }
+
+    @Test func clearColoursStayInOneBucket() {
+        for (hex, bucket) in [("1E5BC6", ColourBucket.blue), ("2E8B3A", .green), ("C8102E", .red)] {
+            let w = ColourBucketMapper.weights(for: OKLab(hex: hex)!)
+            #expect(w.count == 1 && w[0].0 == bucket, "\(hex): \(w)")
+        }
+    }
+
+    @Test func borderColoursCountTowardsBoth() {
+        let w = Dictionary(uniqueKeysWithValues: ColourBucketMapper.weights(for: OKLab(hex: "B8502B")!))
+        #expect((w[.red] ?? 0) > 0.2 && (w[.brown] ?? 0) > 0.2)
+        #expect(abs(w.values.reduce(0, +) - 1) < 1e-5)
+    }
+
+    @Test func saliencySplitsSubjectFromBackground() {
+        // Left half red (the subject), right half white.
+        let side = 32
+        var px: [UInt8] = []
+        for _ in 0..<side { for x in 0..<side { px += x < side / 2 ? [200, 20, 30, 255] : [250, 250, 250, 255] } }
+        let map = WeightMap(width: 2, height: 1, values: [1, 0])
+        let profile = ColourAnalyzer().analyze(rgba: px, width: side, saliency: map)
+        #expect(profile.subjectShares[ColourBucket.red.index] > 0.95)
+        #expect(profile.backgroundShares[ColourBucket.white.index] > 0.95)
+        // Subject weighs more than the background: 1 vs `backgroundWeight`.
+        let expected = 1 / (1 + ColourAnalyzer.backgroundWeight)
+        #expect(abs(profile.share(of: .red) - expected) < 0.03)
+        // Without a map: plain pixel shares, no subject/background.
+        let plain = ColourAnalyzer().analyze(rgba: px, width: side)
+        #expect(abs(plain.share(of: .red) - 0.5) < 0.03 && plain.subjectShares.isEmpty)
+    }
+
+    @Test func lookMetrics() {
+        let grey = ColourAnalyzer().analyze(rgba: Self.bands([("101010", 0.5), ("F0F0F0", 0.5)])).look
+        #expect(grey.isBlackAndWhite)
+        #expect(grey.contrast > 0.35)
+        let warm = ColourAnalyzer().analyze(rgba: Self.bands([("E8A040", 1)])).look
+        let cool = ColourAnalyzer().analyze(rgba: Self.bands([("4080C8", 1)])).look
+        #expect(warm.warmth > 0.05 && cool.warmth < -0.03)
+        #expect(!warm.isBlackAndWhite && warm.saturation > 0.1 && warm.contrast < 0.01)
+        let dark = ColourAnalyzer().analyze(rgba: Self.bands([("202428", 1)])).look
+        #expect(dark.brightness < 0.3)
     }
 }
 

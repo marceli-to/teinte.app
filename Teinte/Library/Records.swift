@@ -4,7 +4,9 @@ import TeinteCore
 
 /// Bump to re-analyse every image after an analysis change.
 /// 2: labels down to confidence 0.1 (was 0.3, top 20).
-let currentAnalysisVersion = 2
+/// 3: look metrics, saliency-weighted soft colour buckets (k=8, 128 px), subject/background colours,
+///    people/faces/text at 1536 px, recognised text, animals, parent labels, aesthetics.
+let currentAnalysisVersion = 3
 
 @Model
 final class WatchedFolder {
@@ -78,6 +80,14 @@ final class ImageRecord {
     var hasText: Bool = false
     var labels: [String] = []
     var labelConfidences: [Float] = []
+    var subjectShares: [Float] = []
+    var backgroundShares: [Float] = []
+    /// [brightness, contrast, saturation, warmth, colourfulShare]; empty before analysis v3.
+    var lookMetrics: [Float] = []
+    /// As recognised (original case), lines separated by newlines.
+    var recognizedText: String = ""
+    var aesthetics: Float?
+    var isUtility: Bool = false
 
     var status: AnalysisStatus {
         get { AnalysisStatus(rawValue: statusRaw) ?? .pending }
@@ -102,7 +112,18 @@ final class ImageRecord {
             pixelWidth: pixelWidth, pixelHeight: pixelHeight,
             bucketShares: bucketShares.count == ColourBucket.allCases.count ? bucketShares : ColourProfile.empty.bucketShares,
             personCount: personCount, faceCount: faceCount, hasText: hasText, labels: labels,
-            palette: paletteEntries, embedding: embedding, available: available)
+            palette: paletteEntries, embedding: embedding, available: available,
+            subjectShares: subjectShares, backgroundShares: backgroundShares, look: look,
+            recognizedText: ImageFeatures.foldForSearch(recognizedText), aesthetics: aesthetics, isUtility: isUtility)
+    }
+
+    var look: LookMetrics {
+        get {
+            guard lookMetrics.count == 5 else { return .neutral }
+            return LookMetrics(brightness: lookMetrics[0], contrast: lookMetrics[1], saturation: lookMetrics[2],
+                               warmth: lookMetrics[3], colourfulShare: lookMetrics[4])
+        }
+        set { lookMetrics = [newValue.brightness, newValue.contrast, newValue.saturation, newValue.warmth, newValue.colourfulShare] }
     }
 
     var paletteEntries: [PaletteEntry] {

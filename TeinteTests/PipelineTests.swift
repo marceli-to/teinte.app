@@ -53,8 +53,8 @@ struct PipelineTests {
         let red = Self.gradient(top: (0.72, 0.31, 0.17), bottom: (0.6, 0.2, 0.1))
         var features: [ImageFeatures] = []
         for (name, img) in [("blue.png", blue), ("red.png", red)] {
-            let colours = ColourAnalyzer().analyze(img)
-            let vision = try await VisionAnalyzer.analyze(img)
+            let vision = try await VisionAnalyzer.analyze(thumbnail: img, detail: img)
+            let colours = ColourAnalyzer().analyze(img, saliency: vision.saliency)
             let embedding = try await Self.embedder?.embed(image: img)
             features.append(ImageFeatures(
                 fileName: name, pixelWidth: img.width, pixelHeight: img.height,

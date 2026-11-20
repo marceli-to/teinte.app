@@ -463,6 +463,7 @@ final class AppModel {
         searchTask = Task {
             var vector: [Float]?
             var labelVectors: [[Float]]?
+            var styleVectors: [[Float]]?
             if let embedder {
                 if let text { vector = try? await embedder.embed(text: text) }
                 // Each label is also checked by the embedding model, so Vision's misses don't drop images.
@@ -472,10 +473,17 @@ final class AppModel {
                     vs.append(v)
                 }
                 if vs.count == resolved.hardLabels.count { labelVectors = vs }
+                // Style tags (golden hour, aerial …) are judged by the same model, against a fixed prompt.
+                var ss: [[Float]] = []
+                for style in filters.styles {
+                    guard let v = try? await embedder.embed(text: style.prompt) else { break }
+                    ss.append(v)
+                }
+                if ss.count == filters.styles.count { styleVectors = ss }
             }
             guard !Task.isCancelled else { return }
             let outcome = await index.search(resolved, vector: vector, labelVectors: labelVectors,
-                                             scope: scope, calibration: calibration)
+                                             styleVectors: styleVectors, scope: scope, calibration: calibration)
             guard !Task.isCancelled else { return }
             hits = outcome.hits
             total = outcome.total

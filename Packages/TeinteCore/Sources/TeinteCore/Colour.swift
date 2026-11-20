@@ -132,4 +132,33 @@ public enum ColourBucketMapper {
             return L >= 0.72 ? .pink : .red
         }
     }
+
+    /// Hue jitter (degrees), lightness jitter and chroma factors for `weights(for:)`.
+    static let hueJitter: [Float] = [-10, -5, 0, 5, 10]
+    static let lightnessJitter: [Float] = [-0.04, 0, 0.04]
+    static let chromaJitter: [Float] = [0.8, 1, 1.25]
+
+    /// Soft membership: the colour and its close neighbours (hue ±10°, L ±0.04, chroma ×0.8–1.25)
+    /// are bucketed, and the colour counts towards each bucket by how many of them land there.
+    /// A colour well inside a bucket stays 100 % there; one near a border (dark red brick on the
+    /// red/brown line) counts partly towards both.
+    public static func weights(for c: OKLab) -> [(ColourBucket, Float)] {
+        let C = c.chroma, h = c.hue * .pi / 180
+        var counts = [Int](repeating: 0, count: ColourBucket.allCases.count)
+        var total = 0
+        for dh in hueJitter {
+            let hh = h + dh * .pi / 180
+            for dl in lightnessJitter {
+                for f in chromaJitter {
+                    let cc = C * f
+                    let sample = OKLab(l: c.l + dl, a: cc * cos(hh), b: cc * sin(hh))
+                    counts[bucket(for: sample).index] += 1
+                    total += 1
+                }
+            }
+        }
+        return ColourBucket.allCases.compactMap { b in
+            counts[b.index] > 0 ? (b, Float(counts[b.index]) / Float(total)) : nil
+        }
+    }
 }

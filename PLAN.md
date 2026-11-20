@@ -146,26 +146,31 @@ Thumbnails go in `~/Library/Containers/…/Caches/Thumbnails/<id>.heic`, 512 px 
 ```
 pending records ─▶ TaskGroup (max N = active CPU cores − 2, min 2)
                     per image:
-                    1. CGImageSource → thumbnail 512 px (also the input to steps 2–4)
-                    2. ColourAnalyzer(thumbnail)
-                    3. VisionAnalyzer(thumbnail) — one VN handler, 4 requests
+                    1. CGImageSource → detail image ≤ 1536 px, thumbnail 512 px derived from it
+                    2. VisionAnalyzer: detail pass (people, faces, text, animals),
+                       thumbnail pass (classification, saliency, aesthetics)
+                    3. ColourAnalyzer(thumbnail, saliency map)
                     4. EmbeddingModel.embedImage(thumbnail → model input size)
                  ─▶ batched writes (every 50 images or 1 s) → Store + EmbeddingStore
                  ─▶ snapshot delta → UI (progress, colour band, live results)
 ```
 
-- **Fast:** the source image is decoded once, at thumbnail size, via ImageIO subsampling. Full-resolution RAWs are never decoded. Vision and Core ML run on the Neural Engine and GPU where they can.
+- **Fast:** the source image is decoded once, at ≤ 1536 px, via ImageIO subsampling. Full-resolution RAWs are never decoded. Vision and Core ML run on the Neural Engine and GPU where they can.
 - **Interruptible:** the work is `Task`-based with cancellation checks between steps. Pausing cancels the group, and `pending` records stay pending.
 - **Resumable:** status is persisted per record. On launch, any `pending` record, or one with `analysisVersion < current`, is queued again. Thumbnails already written are reused.
 - **Progress:** done/total counts, an ETA from a moving average of throughput, and the names of the folders currently being analysed. These feed the first-import screen.
 - **Priority:** images in visible folders are analysed first. The queue runs at `.utility` priority, so it doesn't starve the UI.
 - **Failures** (corrupt file, unsupported codec): the record is marked `failed` with a reason, skipped in results, and counted in the folder's info.
 
-### 4.1 Colours
+### 4.1 Colours (analysis v3)
 
-1. Downscale to 64×64, about 4k pixels. Convert sRGB to linear, then to **OKLab**. Ignore fully transparent pixels.
-2. **k-means, k = 5:** k-means++ init, at most 12 iterations, fixed seed so it's deterministic in tests. The output is 5 centroids with pixel shares.
-3. **Bucket each centroid** using OKLCh (L, C, h). The thresholds were measured on reference colours in Phase 1: pure sRGB red sits at h≈29°, orange ≈71°, yellow ≈110°, green ≈143°, teal/cyan ≈195°, blue ≈264°, purple/magenta ≈328°.
+1. Downscale to at most 128 px on the long side, **keeping the aspect ratio** (about 12k pixels). Convert sRGB to linear, then to **OKLab**. Ignore fully transparent pixels.
+2. **Saliency weighting:** Vision's attention heat map (resampled to 32×32, peak = 1) weights each pixel at 0.3 + 0.7 · saliency, so the subject counts more than the background.
+3. **Bucket shares come from the pixels, not the centroids**, with **soft membership**: each colour and its close neighbours (hue ±10°, L ±0.04, chroma ×0.8–1.25, 45 samples) are bucketed, and the colour counts towards each bucket by the fraction that lands there. A colour well inside a bucket stays 100 % there; one on a border (terracotta, dull red brick) counts towards both. Centroids averaged brick and mortar into grey, which is why shares no longer come from them.
+4. **Subject and background shares** are stored separately (weights saliency and 1 − saliency). They back filters like "on a white background".
+5. **k-means, k = 8** (k-means++ init, at most 12 iterations, fixed seed, saliency-weighted) gives the **palette** only: the list view's swatches and the "library by colour" band.
+6. **Look metrics** over all pixels (unweighted): brightness (mean L), contrast (SD of L), saturation (mean chroma), warmth (mean b + ½ a), and the share of pixels with chroma ≥ 0.03 (black and white = < 3 % and mean chroma < 0.012).
+7. **Bucket thresholds** use OKLCh (L, C, h). Pure sRGB red sits at h≈29°, orange ≈71°, yellow ≈110°, green ≈143°, teal/cyan ≈195°, blue ≈264°, purple/magenta ≈328°.
    - **Extremes:** L < 0.18 → **black**. L > 0.93 and C < 0.06 → **white** (cream, beige).
    - **Achromatic** (C < 0.02): L < 0.30 → **black**, L ≥ 0.90 → **white**, else **grey**. The threshold is low on purpose: hazy skies (`#B8C9D9`, C≈0.029) must still count as blue.
    - **Chromatic, by hue h in degrees:**
@@ -180,20 +185,23 @@ pending records ─▶ TaskGroup (max N = active CPU cores − 2, min 2)
      | 220–290 | blue |
      | 290–345 | purple; **pink** if L ≥ 0.70 |
 
-   - The 43 reference colours and their expected buckets are in `ColourBucketTests`. Documented borderline cases: terracotta `#B8502B` → red, `#E07A50` → orange, `#2F5E4E` → green, salmon → pink, tan → brown.
-4. `bucketShares[b]` is the sum of the shares of the centroids mapped to bucket b, so the total is 1.
-5. The palette's centroids are stored too. They're used for the list view's swatches and the "library by colour" band, which shows the dominant centroid per image sorted by OKLCh hue, with achromatic colours at the end.
+   - The 43 reference colours and their expected (hard) buckets are in `ColourBucketTests`. Terracotta `#B8502B` (h≈39°) is the documented border case: hard bucket red, soft shares red + brown.
 
-### 4.2 Vision (one `ImageRequestHandler`, the Swift Vision API)
+### 4.2 Vision (Swift Vision API, two handlers)
 
-| Request | Stored |
-|---|---|
-| `DetectHumanRectanglesRequest` (upper body off) | `personCount` (observations with confidence ≥ 0.5) |
-| `DetectFaceRectanglesRequest` | `faceCount` |
-| `ClassifyImageRequest` | labels with confidence ≥ 0.1, at most 60 (analysis v2; was ≥ 0.3, top 20) |
-| `RecognizeTextRequest` (`.fast`, no language correction) | `hasText` = any observation with confidence ≥ 0.5 and ≥ 3 characters |
+| Request | Image | Stored |
+|---|---|---|
+| `DetectHumanRectanglesRequest` (upper body off) | detail | body boxes (confidence ≥ 0.5) |
+| `DetectFaceRectanglesRequest` | detail | `faceCount` (confidence ≥ 0.5) |
+| `RecognizeTextRequest` (`.accurate`, language auto, no correction) | detail | `hasText` (a line with confidence ≥ 0.5 and ≥ 3 letters/digits), `recognizedText` (lines ≥ 0.3, ≤ 4000 chars) |
+| `RecognizeAnimalsRequest` | detail | "dog"/"cat" labels (≥ 0.5) |
+| `ClassifyImageRequest` | thumbnail | labels with confidence ≥ 0.1, at most 60, plus **parent labels** (skyscraper → building, dog → animal) |
+| `GenerateAttentionBasedSaliencyImageRequest` | thumbnail | used by the colour analysis (not stored) |
+| `CalculateImageAestheticsScoresRequest` | thumbnail | `aesthetics` (−1…1), `isUtility` (screenshots, documents) |
 
-`personCount` is `max(humanCount, faceCount)`. Human-rectangle detection misses small or partial figures, and faces catch close-up portraits.
+`personCount` = bodies + faces whose centre isn't inside any body. A close-up portrait has a face but no body, someone seen from behind has a body but no face.
+
+Swift Vision gotcha: don't use key paths like `\.boundingBox` on observations. They reference a setter that the macOS 27 SDK has but macOS 26 doesn't, and the app fails to launch (dyld "symbol not found"). Use closures.
 
 ### 4.3 Embedding
 
@@ -278,7 +286,7 @@ The `LanguageModelSession` gets short instructions plus about 6 few-shot example
 
 `IndexSnapshot` holds contiguous arrays indexed by row: `bucketShares: [Float]` (row × 12), `personCount`, `faceCount`, `hasText`, `orientation` (from the pixel size, square = aspect within ±5%), `labelBits` (a per-row bitset over the label vocabulary seen in the library), `available` (folder reachable), and `embeddingSlot`.
 
-- **mostly:** share ≥ 0.40. **contains:** share ≥ 0.10. **without:** share < 0.05. Constants live in one place.
+- **mostly:** share ≥ 0.33 (0.40 before analysis v3; per-pixel soft shares spread more). **contains:** share ≥ 0.10. **without:** share < 0.05. Constants live in one place.
 - **people:** `any` → ≥ 1, `none` → 0, `exactly(n)` → n, `atLeast(n)` → ≥ n.
 - **faces / text:** a boolean test.
 - **labels:** each query label goes through `LabelResolver`, which tries an exact Vision identifier, then a synonym table, then a stem or plural match.
@@ -286,6 +294,12 @@ The `LanguageModelSession` gets short instructions plus about 6 few-shot example
   - The ranking text is the whole sentence ("a photo of red building"), so a colour stays bound to its object. If the sentence has a negation, or the chips were edited, it's built from the positive parsed parts instead (`RankingPrompt`).
   - A label that **doesn't resolve** is moved into `freeText` for embedding search, so a hard filter never wipes out results by mistake.
   - The chip shows which happened: a solid chip for a hard filter, a lighter chip for a "similar to" filter.
+
+- **Colour region** (analysis v3): a colour filter can target the background ("on a white background") and uses the background shares; images without a saliency map fall back to the whole image.
+- **Looks** (measured, `LookFilter`): bright (L ≥ 0.68), dark (L ≤ 0.35), high contrast (SD ≥ 0.27), low contrast (≤ 0.13), vivid (chroma ≥ 0.085), muted (≤ 0.035), warm (≥ 0.035), cool (≤ −0.004), black & white. Thresholds are tuned on the 993-image library; opposites cancel (the later one wins).
+- **Styles** (`StyleTag`, judged by SigLIP against a fixed prompt): golden hour, overcast, studio light, film grain, minimal, aerial, macro, night. An image passes when the calibrated match (§5.3, relative to the library) is ≥ 0.5.
+- **Text in the image:** every word of `textQuery` must appear in the recognised text (case and diacritics folded). The parser takes quoted text, "saying X", "that says X", "the word X".
+- **Screenshots & documents:** Vision's `isUtility`. **Best shots:** aesthetics ≥ 0.3.
 
 Filters combine with AND. The scope comes from the sidebar (All images / Recently added / a folder) and is applied first.
 
@@ -420,20 +434,20 @@ After each phase I'll build, run the tests, and send a short summary of what cha
 | 2 | red photos | colours [red mostly] |
 | 3 | pictures with a bit of yellow | colours [yellow contains] |
 | 4 | nothing green | colours [green without] |
-| 5 | black and white street photos | colours [] · labels [street]* · freeText "black and white" |
+| 5 | black and white street photos | colours [] · labels [street]* · looks [black & white] |
 | 6 | landscape images without people | orientation landscape · people none |
 | 7 | exactly two people | people exactly 2 |
 | 8 | groups of at least four people | people atLeast 4 |
 | 9 | a single person on a jetty | people exactly 1 · freeText contains "jetty" |
-| 10 | screenshots with text | text with · freeText "screenshots" |
+| 10 | screenshots with text | text with · utility with (screenshots & documents) |
 | 11 | images without any text | text without |
 | 12 | close-up faces | faces with · freeText "close-up" |
 | 13 | vertical photos of dogs | orientation portrait · labels [dog] |
 | 14 | orange and pink sunset over a lake | colours [orange contains, pink contains] · freeText "sunset over a lake" |
 | 15 | cozy | freeText "cozy" only |
-| 16 | mostly white minimal product shots | colours [white mostly] · freeText "minimal product shots" |
+| 16 | mostly white minimal product shots | colours [white mostly] · styles [minimal] · freeText "product shots" |
 | 17 | blue, no people and no text | colours [blue mostly] · people none · text without |
-| 18 | warm evening light | freeText "warm evening light" only (no colour bucket for "warm") |
+| 18 | warm evening light | looks [warm] · freeText "evening light" (no colour bucket for "warm") |
 | 19 | square images of food | orientation square · labels [food] |
 | 20 | teal water with one person and a boat | colours [teal contains] · people exactly 1 · labels [boat] · freeText contains "water" |
 
