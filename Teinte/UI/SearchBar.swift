@@ -41,8 +41,9 @@ struct SearchBar: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.muted.opacity(0.7))
+                        .frame(width: 24, height: 24)
                 }
-                .buttonStyle(PressScaleStyle())
+                .buttonStyle(IconButtonStyle(cornerRadius: 12))
                 .help("Clear (Esc)")
                 .accessibilityLabel("Clear search")
             }
@@ -104,9 +105,7 @@ struct ChipsRow: View {
                     Button { model.downloadTranslation() } label: {
                         Label("Download German translation", systemImage: "arrow.down.circle")
                     }
-                    .buttonStyle(.plain)
-                    .font(.mono(12))
-                    .foregroundStyle(Theme.accent)
+                    .buttonStyle(LinkStyle(size: 12, colour: Theme.accent))
                     .frame(height: 32)
                     .help("Words Teinte doesn’t know yet stay in German. Apple’s translation fixes that; it runs on this Mac.")
                 }

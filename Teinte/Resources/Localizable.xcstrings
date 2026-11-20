@@ -1,6 +1,105 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Löschen"
+          }
+        }
+      }
+    },
+    "Delete the look “%@”?": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den Look „%@“ löschen?"
+          }
+        }
+      }
+    },
+    "Move Look Down": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look nach unten"
+          }
+        }
+      }
+    },
+    "Move Look Up": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look nach oben"
+          }
+        }
+      }
+    },
+    "Next Item": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächstes Objekt"
+          }
+        }
+      }
+    },
+    "Only the saved search goes; no images are touched.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur die gesicherte Suche verschwindet, die Bilder bleiben unberührt."
+          }
+        }
+      }
+    },
+    "Previous Item": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorheriges Objekt"
+          }
+        }
+      }
+    },
+    "Rename Look…": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look umbenennen …"
+          }
+        }
+      }
+    },
+    "Show Folder in Finder": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner im Finder zeigen"
+          }
+        }
+      }
+    },
     "Its %@ images leave the library. The files themselves stay where they are.": {
       "extractionState": "manual",
       "localizations": {
@@ -618,13 +717,13 @@
         }
       }
     },
-    "Delete Look": {
+    "Delete Look…": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Look löschen"
+            "value": "Look löschen …"
           }
         }
       }

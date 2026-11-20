@@ -14,6 +14,8 @@ enum Theme {
     static let field = Color(light: 0xF4F5F0, dark: 0x283029)
     /// Selected and hovered rows: a quiet ink tint, darker than the ground.
     static let selection = Color(light: 0x1E2621, lightAlpha: 0.075, dark: 0xECEEE8, darkAlpha: 0.08)
+    /// Icon buttons while pressed: a step deeper than `selection`.
+    static let pressed = Color(light: 0x1E2621, lightAlpha: 0.14, dark: 0xECEEE8, darkAlpha: 0.15)
     /// The well behind the grid/list toggle.
     static let well = Color(light: 0xE1E4DC, dark: 0x252D27)
     /// Placeholder behind thumbnails that haven't loaded yet.

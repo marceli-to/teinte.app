@@ -76,6 +76,8 @@ final class AppModel {
     var importDismissed = false
     /// Bumped to move keyboard focus to the search bar (⌘K).
     var focusSearchToken = 0
+    /// Bumped to move keyboard focus to the results (after stepping the sidebar).
+    var focusResultsToken = 0
     /// Debug snapshots of the import screen.
     var forceImportScreen = false
     /// Bumped to open the "Save as look" form (⌘S).
@@ -88,6 +90,9 @@ final class AppModel {
     var focusedID: UUID? { didSet { if focusedID != oldValue { onSelectionChange?() } } }
     /// Where a ⇧-click range starts.
     var selectionAnchor: UUID?
+    /// The last selection change came from the keyboard: the focused result shows a ring
+    /// (like the web's :focus-visible), so mouse users don't see it.
+    var keyboardNavigating = false
     var inspectorVisible = false
     /// Style-tag prompt embeddings, for the details panel. Computed once.
     var stylePromptVectors: [(StyleTag, [Float])]?
@@ -95,6 +100,10 @@ final class AppModel {
     var exportProgress: (done: Int, total: Int)?
     /// The folder the user asked to remove (⌘⌫ or the context menu); the window asks to confirm.
     var folderToRemove: FolderRow?
+    /// The saved look the user asked to delete (⌘⌫ or the context menu); the window asks to confirm.
+    var lookToDelete: LookInfo?
+    /// The saved look being renamed in the sidebar (context menu or Library › Rename Look…).
+    var renamingLook: UUID?
     /// File URLs of the current results, so drag-out and Quick Look can answer synchronously.
     @ObservationIgnored var resultURLs: [UUID: URL] = [:]
     /// Bumped when the selection changes, so an open Quick Look panel follows it.
@@ -314,8 +323,33 @@ final class AppModel {
         return folders.first { $0.id == id }
     }
 
-    func requestRemoveSelectedFolder() {
-        folderToRemove = selectedFolder
+    /// The saved look selected in the sidebar.
+    var selectedLook: LookInfo? {
+        guard case .look(let id) = selection else { return nil }
+        return looks.first { $0.id == id }
+    }
+
+    /// ⌘⌫: delete the selected look or remove the selected folder, after asking.
+    func requestDeleteSidebarItem() {
+        if let look = selectedLook { lookToDelete = look } else { folderToRemove = selectedFolder }
+    }
+
+    var canDeleteSidebarItem: Bool { selectedLook != nil || selectedFolder != nil }
+
+    /// Every sidebar item, top to bottom.
+    var sidebarItems: [SidebarItem] {
+        [.all, .recent] + looks.map { .look($0.id) } + folders.map { .folder($0.id) }
+    }
+
+    /// ⌥⌘↑ / ⌥⌘↓: select the previous or next sidebar item, from anywhere.
+    func selectAdjacentSidebarItem(_ offset: Int) {
+        let items = sidebarItems
+        let current = items.firstIndex(of: selection) ?? 0
+        let next = min(max(current + offset, 0), items.count - 1)
+        // Leave the search field, so ⌘⌫ acts on the new sidebar item instead of the typed text.
+        focusResultsToken += 1
+        guard next != current else { return }
+        select(items[next])
     }
 
     func removeFolder(_ id: UUID) async {
@@ -733,6 +767,7 @@ extension AppModel {
 
     /// A click on a result. Plain selects only it; ⌘ toggles it; ⇧ selects the range from the anchor.
     func click(_ id: UUID, kind: ClickKind) {
+        keyboardNavigating = false
         switch kind {
         case .plain:
             selectedIDs = [id]
@@ -758,6 +793,7 @@ extension AppModel {
     /// Arrow keys: move the focus by `offset` results, selecting only that one (⇧ extends).
     func moveFocus(by offset: Int, extend: Bool) {
         guard !hits.isEmpty else { return }
+        defer { keyboardNavigating = true }
         let current = focusedID.flatMap { id in hits.firstIndex { $0.id == id } }
         let next = current.map { min(max($0 + offset, 0), hits.count - 1) } ?? 0
         let id = hits[next].id

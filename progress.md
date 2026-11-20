@@ -212,13 +212,35 @@ Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/�
 
 - Your feedback: all of it works.
 
-Step 2 (hover, pressed and focus states, keyboard-only pass) is postponed at your request; steps 3 and 4 come first.
+### Step 2 — States and keyboard-only pass (built, waiting for your check)
 
-### Step 3 — Dark mode (screenshots ready for your review)
+- Every custom control now has hover, pressed and focus states:
+  - New `IconButtonStyle` for the small icon buttons (clear search, close details, details toggle): a soft tint on hover, a deeper tint (`Theme.pressed`) and a slight shrink when pressed, and the focus ring.
+  - The grid/list segments get pressed feedback, a hover tint and the focus ring.
+  - "Save as look" and the details-panel buttons also shrink slightly when pressed.
+  - "Deselect" and "Download German translation" use the link style (underline on hover and focus) instead of plain text buttons.
+- The arrow keys show where they are: the focused tile or row gets the accent ring, but only while you're using the keyboard. A click hides it again, like `:focus-visible` on the web.
+- Everything in the context menus now also has a menu item:
+  - New **Image** menu: Quick Look ⌘Y (moved from File), Find Similar ⌘L, Show in Finder ⇧⌘R.
+  - New **Library** menu:
+    - Previous / Next Item (⌥⌘↑ / ⌥⌘↓) step through the sidebar from anywhere and move focus to the results.
+    - Rename Look…
+    - Move Look Up / Down (⌃⌥⌘↑ / ↓)
+    - Show Folder in Finder
+    - Delete Look… / Remove Folder… (⌘⌫). Deleting a look now asks to confirm too.
+- Fix: ⌘⌫ used to act on the search field whenever it had focus (which is at launch), even when chosen from the menu. Now only the typed shortcut goes to the text, and only while you're in the field.
+- Checked by driving the app with System Events: the menus and their enabled states, stepping the sidebar, ⌘⌫ on a look (dialog, Esc cancels), and the arrows enabling Find Similar. I stopped before checking the ⌘L result because the window had been closed (by you?), so ⌘L itself is unconfirmed.
+- Tests: 81 core + 11 app pass.
+
+**Your turn:** use the keyboard only: ⌥⌘↓ through the sidebar, ⌘⌫ on a look (then cancel), arrows in the results (the ring appears), ⌘L, ⌘Y. Hover and press the small icon buttons.
+
+### Step 3 — Dark mode ✅ (2026-11-20)
+
+- Your feedback: dark looks good, no changes.
+
 
 - Dark mode already followed the system through the `Theme` tokens. Fresh screenshots of every screen in light and dark are in `design/review/dark/`: grid, list, scrolled header, import screen, details panel, several selected, find similar.
 - My read: contrast and the accent hold up; the chips, search bar and details panel sit well on the dark ground. Two things to judge: dimmed tiles (35 % with a selection) get quite dark on the dark ground, and the import screen's "Choose folder…" button turns light (it's the inverted ink button). Flat pill ends on "Save as look" are the screenshot renderer, not the app.
-- Nothing changed yet; I'll polish from your notes.
 
 ### Step 4 — App icon ✅ (built, waiting for your check)
 

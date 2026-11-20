@@ -84,6 +84,16 @@ struct MainView: View {
         } message: { folder in
             Text("Its \(folder.count.grouped) images leave the library. The files themselves stay where they are.")
         }
+        .confirmationDialog(
+            "Delete the look “\(model.lookToDelete?.name ?? "")”?",
+            isPresented: Binding(get: { model.lookToDelete != nil }, set: { if !$0 { model.lookToDelete = nil } }),
+            titleVisibility: .visible, presenting: model.lookToDelete
+        ) { look in
+            Button("Delete", role: .destructive) { Task { await model.deleteLook(look.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Only the saved search goes; no images are touched.")
+        }
         .alert("Teinte", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK") { model.message = nil }
         } message: {
@@ -95,7 +105,6 @@ struct MainView: View {
 /// The toolbar button that shows and hides the details panel.
 struct InspectorToggle: View {
     @Binding var isOn: Bool
-    @State private var hovering = false
 
     var body: some View {
         Button { isOn.toggle() } label: {
@@ -103,11 +112,8 @@ struct InspectorToggle: View {
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(isOn ? Theme.accent : Theme.ink)
                 .frame(width: 32, height: 28)
-                .background(Theme.selection.opacity(hovering ? 1 : 0), in: RoundedRectangle(cornerRadius: 7))
-                .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleStyle())
-        .onHover { hovering = $0 }
+        .buttonStyle(IconButtonStyle())
         .help(isOn ? "Hide details (⌘I)" : "Show details (⌘I)")
         .accessibilityLabel(isOn ? "Hide details" : "Show details")
     }

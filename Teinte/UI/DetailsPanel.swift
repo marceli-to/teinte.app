@@ -18,9 +18,8 @@ struct DetailsPanel: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Theme.muted)
                         .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(PressScaleStyle())
+                .buttonStyle(IconButtonStyle(cornerRadius: 6))
                 .help("Hide details (⌘I)")
                 .accessibilityLabel("Hide details")
             }

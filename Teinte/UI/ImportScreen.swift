@@ -199,19 +199,27 @@ struct DropZone: View {
 
 /// A quiet text link with hover underline.
 struct LinkStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View { Styled(configuration: configuration) }
+    var size: CGFloat = 13
+    /// The resting colour; muted links turn ink on hover, coloured ones keep their colour.
+    var colour: Color?
+
+    func makeBody(configuration: Configuration) -> some View {
+        Styled(configuration: configuration, size: size, colour: colour)
+    }
 
     private struct Styled: View {
         let configuration: Configuration
+        let size: CGFloat
+        let colour: Color?
         @State private var hovering = false
         @Environment(\.isFocused) private var focused
 
         var body: some View {
             configuration.label
-                .font(.mono(13))
-                .foregroundStyle(hovering || focused ? Theme.ink : Theme.muted)
+                .font(.mono(size))
+                .foregroundStyle(colour ?? (hovering || focused ? Theme.ink : Theme.muted))
                 .underline(hovering || focused)
-                .opacity(configuration.isPressed ? 0.7 : 1)
+                .opacity(configuration.isPressed ? 0.6 : 1)
                 .onHover { hovering = $0 }
         }
     }

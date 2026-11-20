@@ -32,10 +32,12 @@ struct ResultsView: View {
             }
         }
         .scrollIndicators(.automatic)
+        .environment(\.resultsFocused, resultsFocused)
         .focusable()
         .focusEffectDisabled()
         .focused($resultsFocused)
         .onChange(of: model.selectedIDs) { if !model.selectedIDs.isEmpty { resultsFocused = true } }
+        .onChange(of: model.focusResultsToken) { resultsFocused = true }
         .onKeyPress(.escape) {
             guard !model.selectedIDs.isEmpty else { return .ignored }
             model.clearSelection()
@@ -79,6 +81,11 @@ struct ResultsView: View {
         .background { HeaderBackdrop() }
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
     }
+}
+
+extension EnvironmentValues {
+    /// The results area has keyboard focus (for the keyboard-position ring).
+    @Entry var resultsFocused = false
 }
 
 /// Translucent ground over a blur of whatever scrolls underneath.
@@ -143,9 +150,7 @@ struct SelectionSummary: View {
                     .foregroundStyle(Theme.ink)
                     .contentTransition(.numericText())
                 Button("Deselect") { model.clearSelection() }
-                    .buttonStyle(.plain)
-                    .font(.mono(11))
-                    .foregroundStyle(Theme.muted)
+                    .buttonStyle(LinkStyle(size: 11))
                     .help("Deselect all (Esc)")
             }
         }
@@ -218,6 +223,12 @@ private struct GridTile: View {
     let selected: Bool
     let dimmed: Bool
     @State private var hovering = false
+    @Environment(\.resultsFocused) private var resultsFocused
+
+    /// Where the arrow keys are, while the keyboard is driving.
+    private var keyboardFocus: Bool {
+        resultsFocused && model.keyboardNavigating && model.focusedID == hit.id
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -232,6 +243,7 @@ private struct GridTile: View {
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(Theme.ink.opacity(hovering ? 0.25 : 0.06), lineWidth: 1)
                 }
+                .modifier(FocusRing(shape: RoundedRectangle(cornerRadius: 10), focused: keyboardFocus))
 
                 .overlay(alignment: .bottomLeading) {
                     if showDebug { DebugOverlay(hit: hit) }
@@ -446,9 +458,11 @@ private struct ListRow: View {
     let matchedBucket: ColourBucket?
     let selected: Bool
     @State private var hovering = false
+    @Environment(\.resultsFocused) private var resultsFocused
 
     var body: some View {
         let f = hit.features
+        let keyboardFocus = resultsFocused && model.keyboardNavigating && model.focusedID == hit.id
         HStack(spacing: 0) {
             HStack(spacing: 16) {
                 Thumbnail(id: hit.id, aspect: f.aspect, contentMode: .fill)
@@ -501,6 +515,9 @@ private struct ListRow: View {
         }
         .frame(height: 60)
         .background(Theme.selection.opacity(selected ? 1 : hovering ? 0.6 : 0))
+        .overlay {
+            if keyboardFocus { Rectangle().strokeBorder(Theme.accent.opacity(0.55), lineWidth: 2) }
+        }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .resultInteractions(hit: hit)

@@ -155,13 +155,54 @@ struct ChipButton: View {
 
 // MARK: - Buttons
 
-/// Slight press feedback for custom controls.
-struct PressScaleStyle: ButtonStyle {
+/// Small icon buttons (clear search, close details, the toolbar toggles): a soft tint on hover,
+/// a deeper one and a slight shrink when pressed, and the focus ring for the keyboard.
+struct IconButtonStyle: ButtonStyle {
+    /// Highlighted (the details toggle while the panel is open): the tint stays.
+    var active = false
+    var cornerRadius: CGFloat = 7
+
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        Styled(configuration: configuration, active: active, cornerRadius: cornerRadius)
+    }
+
+    private struct Styled: View {
+        let configuration: Configuration
+        let active: Bool
+        let cornerRadius: CGFloat
+        @State private var hovering = false
+        @Environment(\.isFocused) private var focused
+
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: cornerRadius)
+            configuration.label
+                .background(configuration.isPressed ? Theme.pressed : Theme.selection.opacity(hovering || active ? 1 : 0), in: shape)
+                .contentShape(shape)
+                .scaleEffect(configuration.isPressed ? 0.94 : 1)
+                .modifier(FocusRing(shape: shape, focused: focused))
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        }
+    }
+}
+
+/// Segments of the grid/list toggle: the label draws its own selected state; this adds
+/// pressed feedback and the focus ring.
+struct SegmentButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { Styled(configuration: configuration) }
+
+    private struct Styled: View {
+        let configuration: Configuration
+        @Environment(\.isFocused) private var focused
+
+        var body: some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.94 : 1)
+                .opacity(configuration.isPressed ? 0.8 : 1)
+                .modifier(FocusRing(shape: RoundedRectangle(cornerRadius: 7), focused: focused))
+                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        }
     }
 }
 
@@ -183,12 +224,14 @@ struct AccentOutlineButtonStyle: ButtonStyle {
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 16)
                 .frame(height: 32)
-                .background(Theme.accent.opacity(configuration.isPressed ? 0.16 : hovering ? 0.08 : 0), in: Capsule())
+                .background(Theme.accent.opacity(configuration.isPressed ? 0.16 : hovering && enabled ? 0.08 : 0), in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.accent, lineWidth: 1.5))
                 .opacity(enabled ? 1 : 0.4)
                 .modifier(FocusRing(shape: Capsule(), focused: focused))
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
                 .onHover { hovering = $0 }
                 .animation(.easeOut(duration: 0.12), value: hovering)
+                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
         }
     }
 }
@@ -258,11 +301,13 @@ struct ViewModeToggle: View {
                         if selected {
                             RoundedRectangle(cornerRadius: 7).fill(Theme.field)
                                 .shadow(color: .black.opacity(0.06), radius: 1, y: 1)
+                        } else if hovering {
+                            RoundedRectangle(cornerRadius: 7).fill(Theme.selection)
                         }
                     }
                     .contentShape(Rectangle())
             }
-            .buttonStyle(PressScaleStyle())
+            .buttonStyle(SegmentButtonStyle())
             .onHover { hovering = $0 }
             .help(label)
             .accessibilityLabel(label)

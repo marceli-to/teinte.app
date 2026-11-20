@@ -5,7 +5,6 @@ import UniformTypeIdentifiers
 /// LIBRARY · SAVED LOOKS · FOLDERS. The selection drives the scope or restores a look.
 struct Sidebar: View {
     @Environment(AppModel.self) private var model
-    @State private var renaming: UUID?
     @State private var renameText = ""
     @FocusState private var renameFocused: Bool
     /// The look being dragged, and the order shown while it moves (nil when no drag is in progress).
@@ -81,7 +80,7 @@ struct Sidebar: View {
         let selected = model.selection == .look(look.id)
         let index = model.looks.firstIndex(of: look) ?? 0
         return Group {
-            if renaming == look.id {
+            if model.renamingLook == look.id {
                 HStack(spacing: 11) {
                     lookDot(selected: selected)
                     TextField("Name", text: $renameText)
@@ -89,13 +88,13 @@ struct Sidebar: View {
                         .font(.sidebarItem)
                         .focused($renameFocused)
                         .onSubmit { commitRename(look.id) }
-                        .onKeyPress(.escape) { renaming = nil; return .handled }
+                        .onKeyPress(.escape) { model.renamingLook = nil; return .handled }
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 32)
                 .background(Theme.field, in: RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent, lineWidth: 1.5))
-                .onAppear { renameFocused = true }
+                .onAppear { renameText = look.name; renameFocused = true }
                 .onChange(of: renameFocused) { if !renameFocused { commitRename(look.id) } }
             } else {
                 Button { model.select(.look(look.id)) } label: {
@@ -114,13 +113,13 @@ struct Sidebar: View {
                 .accessibilityLabel("Saved look: \(look.name)")
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .contextMenu {
-                    Button("Rename…") { renameText = look.name; renaming = look.id }
+                    Button("Rename…") { model.renamingLook = look.id }
                     Button("Move Up") { Task { await model.moveLook(look.id, by: -1) } }
                         .disabled(index == 0)
                     Button("Move Down") { Task { await model.moveLook(look.id, by: 1) } }
                         .disabled(index == model.looks.count - 1)
                     Divider()
-                    Button("Delete Look", role: .destructive) { Task { await model.deleteLook(look.id) } }
+                    Button("Delete Look…", role: .destructive) { model.lookToDelete = look }
                 }
             }
         }
@@ -168,8 +167,8 @@ struct Sidebar: View {
     }
 
     private func commitRename(_ id: UUID) {
-        guard renaming == id else { return }
-        renaming = nil
+        guard model.renamingLook == id else { return }
+        model.renamingLook = nil
         let name = renameText
         Task { await model.renameLook(id, to: name) }
     }
