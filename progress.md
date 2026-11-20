@@ -180,7 +180,7 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
 - Safety: when the folder itself goes away (drive ejected, folder renamed, moved or trashed), its images are never deleted. The folder is looked up again through its bookmark: if it was renamed or moved, Teinte follows it. Otherwise it's dimmed as unavailable, and it comes back on its own when the drive is plugged in again.
 - At launch, watching starts first, then each folder is compared with the index (this part already existed and now also keeps renames).
 - Tests: 80 core + 11 app pass. The new tests cover the reconcile rules, real FSEvents in a temp folder (new file fires, `.DS_Store` doesn't, moving the folder fires a root change), a missing folder scanning as "unreachable" rather than empty, and a rename through the real store.
-- Not tried by hand in the app: I didn't want to touch your library folders. **Your turn:** with Teinte open, drop a few images into one of your folders, rename one, and delete one. Then eject a drive with a library folder on it (if you have one) and plug it back in.
+- Your feedback: tried in the app with your folders, it works.
 
 Then the rest of Phase 2: drag-to-reorder for saved looks.
 
