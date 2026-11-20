@@ -94,7 +94,7 @@ Analysis v3. Your library was re-analysed once (993 images, about 6 minutes).
 - Fix along the way: Swift Vision key paths (`\.boundingBox`) crash the app at launch on macOS 26 when it's built with the 27 SDK. They're replaced with closures, and the gotcha is noted in PLAN.md.
 - Tests: 54 core + 4 app pass.
 
-**Your turn:** try "black and white", "warm", "golden hour", "aerial", "night", "my best photos of the beach", "product on a white background", a word you know is in a photo (e.g. "kindle"), and "red building". The analysis details (⌥⌘D) now show the look values, aesthetics and recognised text.
+Your feedback: "it works perfectly."
 
 ### Step 2b — Analysis refinement ✅ (steps 1–4; step 5 moved to v2)
 
@@ -114,7 +114,22 @@ Agreed order. Steps 2–5 need a re-analysis: bump `currentAnalysisVersion` once
 
 Tip: `/tmp/teinte-probe` had a CLI probe (SigLIP + `embeddings.bin`) used to tune thresholds. It's outside the repo; rebuild if needed.
 
-**Your turn:** look at the app (or `design/review/`) and tell me what to change. Then: analysis refinement (match %, labels), followed by FSEvents watching + launch reconcile and drag-to-reorder looks.
+### Where we are (2026-11-20, end of session)
+
+- Everything is committed on `main`. The app builds, and all tests pass (54 core + 4 app). Your library is on analysis v3.
+- Handy tools outside the repo (rebuild if `/tmp` was cleared):
+  - `/tmp/teinte-probe/probe "<text>"`: SigLIP cosines over `embeddings.bin`.
+  - `/tmp/teinte-colour/colour <file>`: colour analysis of one image.
+  - `/tmp/teinte-sheet/stats.py`: decodes the SwiftData store and prints look/aesthetics distributions.
+  - `/tmp/teinte-sheet/sheet`: contact sheets.
+- Backup of the v2-analysed store: `/tmp/teinte-backup-v2`.
+
+### Next session
+
+1. **First: your new requirements.** We talk them through before any code, then fit them into the plan (PLAN.md) and the order below.
+2. Then the rest of Phase 2, unless your requirements change the order:
+   - FSEvents folder watching, plus a reconcile at launch (new, changed and deleted files).
+   - Drag-to-reorder for saved looks.
 
 ## Phase 3 — Mac polish
 ## Phase 4 — Release prep
