@@ -195,7 +195,7 @@ Details in PLAN.md §7, Phase 2. Your answers: UI and search both in German; sim
 
 Phase 2 is done.
 
-## Phase 3 — Mac polish
+## Phase 3 — Mac polish ✅ (2026-11-20)
 
 Plan: 1. Quick Look, drag out, ⌘⌫ → 2. hover, pressed and focus states, keyboard-only pass → 3. dark mode screenshots for your review → 4. app icon.
 
@@ -212,7 +212,7 @@ Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/�
 
 - Your feedback: all of it works.
 
-### Step 2 — States and keyboard-only pass (built, waiting for your check)
+### Step 2 — States and keyboard-only pass ✅ (2026-11-20)
 
 - Every custom control now has hover, pressed and focus states:
   - New `IconButtonStyle` for the small icon buttons (clear search, close details, details toggle): a soft tint on hover, a deeper tint (`Theme.pressed`) and a slight shrink when pressed, and the focus ring.
@@ -232,7 +232,7 @@ Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/�
 - Checked by driving the app with System Events: the menus and their enabled states, stepping the sidebar, ⌘⌫ on a look (dialog, Esc cancels), and the arrows enabling Find Similar. I stopped before checking the ⌘L result because the window had been closed (by you?), so ⌘L itself is unconfirmed.
 - Tests: 81 core + 11 app pass.
 
-**Your turn:** use the keyboard only: ⌥⌘↓ through the sidebar, ⌘⌫ on a look (then cancel), arrows in the results (the ring appears), ⌘L, ⌘Y. Hover and press the small icon buttons.
+- Your feedback: it all works.
 
 ### Step 3 — Dark mode ✅ (2026-11-20)
 
@@ -242,12 +242,12 @@ Already there from Phase 2: dropping folders in, the context menu, ⌘K, ⌘1/�
 - Dark mode already followed the system through the `Theme` tokens. Fresh screenshots of every screen in light and dark are in `design/review/dark/`: grid, list, scrolled header, import screen, details panel, several selected, find similar.
 - My read: contrast and the accent hold up; the chips, search bar and details panel sit well on the dark ground. Two things to judge: dimmed tiles (35 % with a selection) get quite dark on the dark ground, and the import screen's "Choose folder…" button turns light (it's the inverted ink button). Flat pill ends on "Save as look" are the screenshot renderer, not the app.
 
-### Step 4 — App icon ✅ (built, waiting for your check)
+### Step 4 — App icon ✅ (2026-11-20)
 
 - Redrawn from `design/04` as three SVG layers in `design/icon/` (back print, front print, artwork with the landscape and its three colour dots), each on a 1024 canvas.
 - `Teinte/AppIcon.icon` is the macOS 26 layered Icon Composer file: two groups (front print + artwork on top, back print below), neutral shadows, ground-colour fill. The build compiles it into `AppIcon.icns` + `Assets.car` (all sizes), so there's no separate `.appiconset`: the deployment target is macOS 26, where the `.icon` is the source.
 - The 16–1024 px PNGs, exported with Icon Composer's `ictool`, are in `design/icon/png/`. The default, dark and clear renderings are side by side in `design/icon/renditions.png`.
 - Open `Teinte/AppIcon.icon` in Icon Composer to tweak glass, shadows or the dark fill.
 
-**Your turn:** look through `design/review/dark/` and tell me what to change. Check the icon in the Dock (Teinte is running with it) and in `design/icon/renditions.png`.
+Phase 3 is done. Next is Phase 4 (release prep).
 ## Phase 4 — Release prep
